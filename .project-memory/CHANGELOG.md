@@ -11,3 +11,4 @@
 - Recorded initial project state, decisions, backlog, and session handover.
 - Preserved the Miles & Meals Starter Kit deliverable under `outputs/`.
 - Initialized git repository and created the initial local commit.
+- Configured GitHub remote `origin` for `https://github.com/BrilliantStar3503/Miles-and-Meals.git`.
