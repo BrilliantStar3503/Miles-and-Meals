@@ -7,8 +7,7 @@
 
 ## Product Direction
 
-- Decide whether the next milestone is a documentation system, automation workflow, or executable dashboard.
-- Define the first buildable feature.
+- Decide whether the next milestone is a dashboard, API service, or deeper local automation workflow.
 
 ## Miles & Meals Ecosystem
 
@@ -21,3 +20,16 @@
 - Create website content structure.
 - Prototype an approval dashboard.
 - Prototype analytics tracking.
+
+## AI Content Factory
+
+- Add EXIF and GPS extraction.
+- Add perceptual duplicate detection.
+- Add configurable trip/project grouping.
+- Add real AI enhancement provider adapter.
+- Add vision-model scene intelligence.
+- Add file watcher mode for `RAW/` and `Instagram Ready/`.
+- Add approval status transitions.
+- Add publishing API adapters.
+- Add analytics import and history.
+- Add cloud storage sync.

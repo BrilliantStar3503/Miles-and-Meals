@@ -1,0 +1,29 @@
+# Dependencies and local tooling
+node_modules/
+.DS_Store
+
+# Runtime content factory state
+content-factory/content-factory-state.json
+content-factory/Logs/*.ndjson
+content-factory/Drafts/*.json
+
+# Creator media and generated assets are local by default.
+content-factory/RAW/*
+content-factory/Enhanced/*
+content-factory/Lightroom Ready/*
+content-factory/CapCut Ready/*
+content-factory/Instagram Ready/*
+content-factory/Published/*
+content-factory/Archive/*
+content-factory/Backups/*
+
+!content-factory/RAW/.gitkeep
+!content-factory/Enhanced/.gitkeep
+!content-factory/Lightroom Ready/.gitkeep
+!content-factory/CapCut Ready/.gitkeep
+!content-factory/Instagram Ready/.gitkeep
+!content-factory/Published/.gitkeep
+!content-factory/Archive/.gitkeep
+!content-factory/Backups/.gitkeep
+!content-factory/Logs/.gitkeep
+!content-factory/Drafts/.gitkeep

@@ -1,0 +1,16 @@
+{
+  "name": "miles-and-meals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Miles & Meals AI Content Factory local pipeline scaffold.",
+  "scripts": {
+    "factory:init": "node src/cli.js init",
+    "factory:run": "node src/cli.js run",
+    "factory:status": "node src/cli.js status",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
