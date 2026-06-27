@@ -10,3 +10,4 @@
 - Added AI agent workflow guide.
 - Recorded initial project state, decisions, backlog, and session handover.
 - Preserved the Miles & Meals Starter Kit deliverable under `outputs/`.
+- Initialized git repository and created the initial local commit.

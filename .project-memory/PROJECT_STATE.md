@@ -8,6 +8,8 @@ Repository memory has been initialized for a brand-new Miles & Meals project.
 
 - Created required `docs/` structure.
 - Created required `.project-memory/` structure.
+- Initialized git repository.
+- Created initial local commit for repository memory and starter kit.
 - Documented AI agent workflow.
 - Documented initial architecture status.
 - Documented database status.
@@ -34,4 +36,5 @@ Repository memory has been initialized for a brand-new Miles & Meals project.
 ## Next Steps
 
 - Configure a git remote if this repository should be pushed.
+- Push local commits after a remote is configured.
 - Continue using `.project-memory/` as the handover source for every future session.
