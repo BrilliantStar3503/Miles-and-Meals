@@ -104,3 +104,5 @@ pkill -f "automation1:watch"
 - **A photo shows as `invalid`**: check `errors` in the status/log output. Usually an unsupported file type, a zero-byte file, or a file that was still copying/syncing when checked — wait a moment and re-copy it.
 - **Nothing happens after copying a photo**: confirm `automation1:watch` is actually running, or run `automation1:run` manually once.
 - **Need to re-process a photo**: Automation 1 skips files that already exist in `Enhanced/`. Delete the file from `Enhanced/` first if you need to redo it.
+- **The watcher printed a "watcher lost connection" message**: this happens if the folder briefly became unavailable (e.g. an external drive blip). It retries automatically a few times. If you see a `FATAL` message saying the watcher stopped permanently, just restart it with `npm run automation1:watch`.
+- **You stopped the watcher with Ctrl+C while it was processing a photo**: it now waits for that photo to finish before exiting, so you shouldn't see a half-copied file in `Enhanced/`.

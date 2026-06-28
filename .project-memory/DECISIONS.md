@@ -72,6 +72,12 @@ Decision: Before any Automation 2 work, validate Automation 1 against the real `
 
 Reasoning: Confirms the implementation works against the actual production path (not just temp directories in tests) before depending on it for real travel, while keeping this validation pass separate from new feature work.
 
+## 2026-06-28 - Harden Automation 1 for Production Without Changing the Workflow
+
+Decision: Before starting Automation 2 or integrating a real AI provider, perform a reliability-only pass on Automation 1: watcher error handling with bounded retry and a clear fatal message, atomic state writes with corrupted-state recovery, atomic enhanced-file writes with temp-file cleanup, validation-time error handling for disappearing files, and graceful `SIGINT`/`SIGTERM` shutdown that waits for in-flight work. No folder structure, workflow stage, or functionality was changed.
+
+Reasoning: Several crash/corruption risks were found beyond the originally known watcher issue (unhandled rejections from triggered runs, non-atomic state and file writes, a silent validation gap, abrupt shutdown). Fixing these now, while the workflow is still simple and well understood, is cheaper than discovering them mid-trip. Automation 1 is now considered Production Ready and is intentionally frozen until real-world usage surfaces further issues.
+
 ## 2026-06-28 - Separate the Development Repository From the Media Workspace
 
 Decision: This repository (`Miles-and-Meals`) holds code, documentation, automation, and project memory. The production Media Workspace (`Miles and Meals PH`) holds actual photos, videos, Lightroom assets, CapCut projects, and published media, and lives outside this repository.

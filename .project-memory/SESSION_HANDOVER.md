@@ -2,29 +2,37 @@
 
 ## Latest Session Summary
 
-Validated Automation 1 against the real production Media Workspace (`~/Miles and Meals PH`) before starting Automation 2. No new features were implemented. One pre-existing issue was found and documented (not fixed).
+Performed a final production hardening pass on Automation 1 (no workflow changes, no new functionality, no AI provider integration). Fixed the previously known watcher crash risk plus several additional reliability gaps found during a full codebase review. Automation 1 is now considered Production Ready.
 
 ## Completed
 
-- Verified `~/Miles and Meals PH` exists and confirmed/created the required folder structure: `Trips/`, `Instagram Candidates/`, `Enhanced/`, `Lightroom Ready/`, `Instagram Ready/`, `.automation1/`. The workspace had no existing media, so nothing was at risk; no media was modified.
-- Ran `automation1:watch` against the real production workspace using a synthetic file I created and removed myself (`_automation1-watch-verification.jpg`, fake bytes) — never an existing photo. Confirmed: the watcher detects a new file in `Instagram Candidates/`, validates it, runs it through the Pass-through provider, and writes the unmodified copy to `Enhanced/`.
-- Cleaned up after verification: removed the synthetic file from `Instagram Candidates/` and `Enhanced/`, reset `.automation1/state.json` to empty, and cleared `.automation1/logs/events.ndjson`. The production workspace is back to a clean, ready-to-use state.
-- Wrote `docs/OPERATOR_GUIDE.md`: a field guide covering importing photos into `Trips/`, selecting Instagram-worthy candidates, copying them into `Instagram Candidates/`, starting Automation 1 (`automation1:run` one-shot or `automation1:watch` continuous), verifying processing via the JSON output / `automation1:status` / the event log, where `Enhanced/` output appears, and how to stop the watcher (`Ctrl+C` or `pkill -f "automation1:watch"`).
-- Updated `.project-memory/PROJECT_STATE.md`, `.project-memory/DECISIONS.md`, and `.project-memory/CHANGELOG.md` to record the validation and the issue found.
+- `src/automation1/watcher.js`: rewrote to attach an `error` handler to `fs.watch`. On error: log it, close the broken watcher, retry up to 5 times with a 1s delay, and if retries are exhausted, stop and print a clear `FATAL` console message explaining what happened and how to restart (`npm run automation1:watch`). The process is never crashed by a watcher error. Runs triggered by the debounced watcher are also wrapped in a `.catch()` as defense in depth.
+- `src/automation1/pipeline.js` (`watchAutomation1`): the `run` function used as the watcher's callback now catches its own errors and logs them via the logger instead of letting them become an unhandled promise rejection (this was a real crash risk independent of the `fs.watch` error case — a provider failure during a watched run would previously have crashed the whole process). `watchAutomation1` now also tracks the in-flight run and exposes `close()` as `async`, so callers can wait for a run to finish before fully stopping.
+- `src/automation1/state-store.js`: `writeState` now writes to a temp file and renames it into place (atomic write). `readState` now catches a JSON parse failure, backs up the corrupted file to `state.json.corrupt-<timestamp>`, and continues with empty state instead of crashing the next run.
+- `src/automation1/providers/passthrough-provider.js`: `enhance()` now copies to a temp file and renames it into place, with cleanup of the temp file if the copy fails. This prevents a crash mid-copy from leaving a partial file under the final filename — important because `destinationExists()` (duplicate-processing prevention) checks exactly that filename.
+- `src/automation1/validator.js`: the write-stability check is now wrapped in a try/catch. If a candidate file disappears or becomes unreadable while waiting to confirm it's done writing, it's now reported as `invalid` (logged, counted) instead of throwing an uncaught error that silently dropped the file from all counts.
+- `src/cli.js`: `automation1:watch` now handles `SIGINT` and `SIGTERM` exactly once each (no double-shutdown race), awaits the watcher's `close()` (which itself awaits any in-flight run) before exiting, and prints "Stopping watcher..." / "Watcher stopped." for operator clarity. Added a process-level `unhandledRejection` log handler scoped to the `automation1:watch` command only, as a last-resort safety net.
+- `test/automation1.test.js`: added 5 tests (14/14 total passing) — atomic state write leaves no temp file, corrupted state file recovery, pass-through provider cleans up its temp file on a failed copy, `watchAutomation1` survives a failing run without crashing, and `watchCandidates` keeps running after triggering on a real file event.
+- Re-ran `npm test`: 14/14 pass.
+- Re-verified against the real production workspace (`~/Miles and Meals PH`): `automation1:run` still behaves correctly post-hardening and the workspace remains empty/clean (no real media was touched). Verified `SIGINT` shutdown manually against a scratch directory: process exits cleanly with code 0 and prints the expected stop messages.
+- Updated `docs/FEATURES/automation-1.md` (new "Production Hardening" section) and `docs/OPERATOR_GUIDE.md` (troubleshooting notes for watcher recovery and clean Ctrl+C behavior).
 
 ## Important Context
 
-- The production Media Workspace at `~/Miles and Meals PH` is now correctly structured for Automation 1 and currently has no real media in it yet.
-- Automation 1's behavior was confirmed end-to-end against the real workspace path (not just a temp directory in tests), using only synthetic test data that was fully cleaned up afterward.
-- `docs/OPERATOR_GUIDE.md` is now the canonical reference for day-to-day field use of Automation 1.
+- No workflow, folder structure, or functionality changed in this session — this was a reliability-only pass, as instructed.
+- No AI enhancement provider was integrated; the Pass-through provider remains the only registered provider.
+- Automation 2 was not started.
+- The fixes address: watcher crash risk (the previously known issue), an unhandled-rejection crash risk from triggered runs (newly found), state file corruption risk on crash (newly found), partial/corrupt Enhanced file risk on crash (newly found), a silent validation gap when a file disappears mid-check (newly found), and abrupt shutdown cutting off in-flight work (newly found).
 
-## Outstanding Work — Known Issue (Not Fixed)
+## Outstanding Work / Remaining Limitations
 
-- `src/automation1/watcher.js` calls `fs.watch(directory, ...)` without attaching an `error` event handler. If the watched folder becomes briefly unavailable while `automation1:watch` is running (external/network drive ejected, folder renamed, etc.), Node will throw an unhandled error and crash the watch process instead of logging and recovering. This is a real risk for unattended use during travel (e.g. watching a folder on an external SSD that gets bumped loose) and should be fixed before depending on `automation1:watch` running unattended for a full trip. Workaround in the meantime: prefer the one-shot `automation1:run` (e.g. re-run periodically or after each import) over leaving `automation1:watch` unattended on removable storage.
-- No other functional issues were found. `npm test` was not re-run in this session since no application code changed; the existing 9/9 passing suite from the implementation session still applies.
+- No real AI enhancement provider integrated yet (Pass-through only) — expected, not a defect.
+- The event log (`.automation1/logs/events.ndjson`) has no rotation; fine for a single trip, worth revisiting only if it's run continuously for a long time.
+- Watcher retry uses a fixed delay/retry count (5 retries, 1s apart, no backoff); acceptable for now.
+- Automation 2 has not been ported to the production Media Workspace.
 
 ## Recommended Next Actions
 
-1. Fix the missing `error` handler in `src/automation1/watcher.js` before relying on `automation1:watch` unattended.
-2. Once that's addressed, Automation 1 can be used for real travel selections via `Instagram Candidates/` → `Enhanced/` → manual Lightroom editing → `Lightroom Ready/`.
-3. Do not begin Automation 2 until directed.
+1. Use Automation 1 for real travel content. Per the user's instruction and the hardening review, Automation 1 should be frozen until real-world usage reveals concrete issues — avoid further speculative hardening.
+2. When ready, integrate a real enhancement provider as a new `BaseEnhancementProvider` subclass via `registerProvider`.
+3. Do not begin Automation 2 until explicitly directed.

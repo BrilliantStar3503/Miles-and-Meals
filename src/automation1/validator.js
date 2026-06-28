@@ -37,8 +37,14 @@ export async function validateMediaFile(filePath, config) {
     errors.push("File is empty.");
   }
 
-  if (errors.length === 0 && !(await isFileStable(filePath, stats.size, config.stabilityCheckMs))) {
-    errors.push("File size changed during stability check; it may still be writing or syncing.");
+  if (errors.length === 0) {
+    try {
+      if (!(await isFileStable(filePath, stats.size, config.stabilityCheckMs))) {
+        errors.push("File size changed during stability check; it may still be writing or syncing.");
+      }
+    } catch (error) {
+      errors.push(`File became unreadable during the stability check: ${error.message}`);
+    }
   }
 
   return { valid: errors.length === 0, errors, sizeBytes: stats.size };

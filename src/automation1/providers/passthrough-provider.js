@@ -9,7 +9,15 @@ export class PassthroughEnhancementProvider extends BaseEnhancementProvider {
 
   async enhance({ sourcePath, destinationPath }) {
     await fs.mkdir(path.dirname(destinationPath), { recursive: true });
-    await fs.copyFile(sourcePath, destinationPath);
+
+    const tempPath = `${destinationPath}.tmp-${process.pid}-${Date.now()}`;
+    try {
+      await fs.copyFile(sourcePath, tempPath);
+      await fs.rename(tempPath, destinationPath);
+    } catch (error) {
+      await fs.unlink(tempPath).catch(() => {});
+      throw error;
+    }
 
     return {
       provider: this.name,

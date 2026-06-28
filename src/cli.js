@@ -80,10 +80,29 @@ try {
     const handle = await watchAutomation1(options, {
       onRun: (result) => console.log(JSON.stringify(result, null, 2))
     });
-    process.on("SIGINT", () => {
-      handle.close();
-      process.exit(0);
+
+    process.on("unhandledRejection", (reason) => {
+      console.error(
+        "[automation1] ERROR Unhandled rejection while watching:",
+        reason instanceof Error ? reason.message : reason
+      );
     });
+
+    let shuttingDown = false;
+    const shutdown = async (signal) => {
+      if (shuttingDown) {
+        return;
+      }
+
+      shuttingDown = true;
+      console.log(`\n[automation1] Received ${signal}. Stopping watcher...`);
+      await handle.close();
+      console.log("[automation1] Watcher stopped.");
+      process.exit(0);
+    };
+
+    process.on("SIGINT", () => void shutdown("SIGINT"));
+    process.on("SIGTERM", () => void shutdown("SIGTERM"));
   } else {
     printHelp();
     process.exitCode = command === "help" ? 0 : 1;

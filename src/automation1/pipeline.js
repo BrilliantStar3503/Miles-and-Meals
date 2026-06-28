@@ -137,14 +137,33 @@ export async function watchAutomation1(options = {}, { onRun } = {}) {
     directory: config.directories["Instagram Candidates"]
   });
 
-  const run = async () => {
-    const result = await runAutomation1(options);
-    if (onRun) {
-      onRun(result);
-    }
+  let inFlight = Promise.resolve();
+
+  const run = () => {
+    inFlight = (async () => {
+      try {
+        const result = await runAutomation1(options);
+        if (onRun) {
+          onRun(result);
+        }
+      } catch (error) {
+        await logger.error("Automation 1 run failed", {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    })();
+
+    return inFlight;
   };
 
   await run();
 
-  return watchCandidates(config, run);
+  const watcherHandle = watchCandidates(config, run, { logger });
+
+  return {
+    async close() {
+      watcherHandle.close();
+      await inFlight;
+    }
+  };
 }

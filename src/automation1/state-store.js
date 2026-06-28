@@ -11,9 +11,10 @@ export function createEmptyState() {
 }
 
 export async function readState(config) {
+  let raw;
+
   try {
-    const raw = await fs.readFile(config.statePath, "utf8");
-    return JSON.parse(raw);
+    raw = await fs.readFile(config.statePath, "utf8");
   } catch (error) {
     if (error && error.code === "ENOENT") {
       return createEmptyState();
@@ -21,10 +22,25 @@ export async function readState(config) {
 
     throw error;
   }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const backupPath = `${config.statePath}.corrupt-${Date.now()}`;
+    console.error(
+      `[automation1] ERROR State file is corrupted and could not be parsed: ${config.statePath}\n` +
+        `  Moving it to ${backupPath} and starting with empty state.`
+    );
+    await fs.rename(config.statePath, backupPath).catch(() => {});
+    return createEmptyState();
+  }
 }
 
 export async function writeState(config, state) {
   state.updatedAt = new Date().toISOString();
   await fs.mkdir(path.dirname(config.statePath), { recursive: true });
-  await fs.writeFile(config.statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+
+  const tempPath = `${config.statePath}.tmp-${process.pid}`;
+  await fs.writeFile(tempPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  await fs.rename(tempPath, config.statePath);
 }

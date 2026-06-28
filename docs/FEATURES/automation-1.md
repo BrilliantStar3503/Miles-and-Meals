@@ -81,6 +81,18 @@ Automation 1 never stores production media, state, or logs inside this repositor
 - Automation 1 never writes to `Lightroom Ready/`; that folder is populated only by manual Lightroom editing.
 - Automation 1 has no publishing capability.
 
+## Production Hardening
+
+Beyond the core workflow, Automation 1 includes the following reliability measures:
+
+- **Watcher error recovery** (`watcher.js`) - `fs.watch` errors are caught, logged, and retried with a fixed delay up to a retry limit. If retries are exhausted, the watcher stops and prints a clear console message explaining what happened and how to restart it (`npm run automation1:watch`). The process is never crashed by a watcher error.
+- **No unhandled rejections from triggered runs** - each run triggered by the watcher is wrapped so a failure is logged via the logger instead of becoming an unhandled promise rejection (which would otherwise crash the process).
+- **Atomic state writes** (`state-store.js`) - state is written to a temp file and renamed into place, so a crash or power loss mid-write cannot corrupt `state.json`.
+- **Corrupted state recovery** (`state-store.js`) - if `state.json` cannot be parsed, it is moved aside to a `.corrupt-<timestamp>` backup and Automation 1 continues with empty state instead of crashing.
+- **Atomic enhanced file writes** (`providers/passthrough-provider.js`) - the provider copies to a temp file and renames it into place, with cleanup of the temp file on failure. A crash mid-copy can never leave a partial file under the final filename, which is what duplicate-detection (`destinationExists`) checks against.
+- **Stability-check failures don't escape silently** (`validator.js`) - if a candidate file disappears or becomes unreadable during the write-stability check, it is now recorded as invalid (with a log entry and a state entry), instead of throwing an uncaught error that would silently skip the file.
+- **Graceful shutdown** (`cli.js`) - `SIGINT` and `SIGTERM` are handled once each; the watcher is closed and any in-flight run is awaited before the process exits, so a photo currently being copied is not left in a half-enhanced state by Ctrl+C.
+
 ## Tests
 
-`test/automation1.test.js` covers workspace initialization, successful pass-through enhancement, rejection of unsupported files, idempotent re-runs, and registering a stub future provider to confirm the workflow does not need to change when a new provider is added.
+`test/automation1.test.js` covers workspace initialization, successful pass-through enhancement, rejection of unsupported files, idempotent re-runs, registering a stub future provider, atomic/corrupted state handling, pass-through provider cleanup on copy failure, watcher error recovery, and `watchAutomation1` surviving a failing run without crashing.

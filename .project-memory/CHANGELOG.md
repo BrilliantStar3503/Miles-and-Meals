@@ -43,3 +43,15 @@
 - Verified the Automation 1 watcher end-to-end against the real production workspace using a synthetic test file only; cleaned up the synthetic file and reset state/logs afterward.
 - Added `docs/OPERATOR_GUIDE.md` for day-to-day field use of Automation 1.
 - Identified and documented (not fixed) a missing `error` handler on `fs.watch` in `src/automation1/watcher.js` that could crash `automation1:watch` if the watched folder becomes briefly unavailable.
+
+## 2026-06-28 (continued) - Automation 1 production hardening pass
+
+- Fixed the watcher crash risk: `fs.watch` errors are now caught, logged, retried with bounded backoff, and reported with a clear fatal message and restart instructions if recovery fails.
+- Fixed an unhandled-rejection crash risk: failures in watcher-triggered runs are now caught and logged instead of crashing the process.
+- Made `state.json` writes atomic (temp file + rename) and added recovery from a corrupted/unparsable state file.
+- Made `Enhanced/` file writes atomic in the pass-through provider (temp file + rename, with cleanup on failure) to prevent partial files after a crash mid-copy.
+- Fixed a silent validation gap where a file disappearing during the write-stability check would throw uncaught instead of being recorded as invalid.
+- Added graceful `SIGINT`/`SIGTERM` handling in the CLI: the watcher is closed and any in-flight run is awaited before exit.
+- Added 5 new tests (14/14 total passing) covering all of the above.
+- Updated `docs/FEATURES/automation-1.md` and `docs/OPERATOR_GUIDE.md`.
+- No workflow, folder structure, or functionality changed. No AI provider integrated. Automation 2 not started.
