@@ -64,19 +64,49 @@ Nothing publishes automatically. A human always reviews and publishes.
 - **Development Repository** (`Miles-and-Meals`) - this repository. Contains code, documentation, automation, and project memory.
 - **Media Workspace** (`Miles and Meals PH`) - a separate location containing photos, videos, Lightroom assets, CapCut projects, and published media. Not part of this repository.
 
+Automation 1 reads from and writes to the Media Workspace directly (`~/Miles and Meals PH` by default, overridable via `AUTOMATION1_MEDIA_ROOT` or `--root`). It also stores its own runtime state and logs inside the Media Workspace, under `.automation1/`, rather than inside this repository. No production media, Automation 1 state, or Automation 1 logs are ever committed to this repository.
+
 ## Current Technology
 
-- Runtime: Node.js 24+ using built-in modules only.
+- Runtime: Node.js 22+ using built-in modules only.
 - CLI: `src/cli.js`.
 - Tests: Node.js built-in test runner.
 - Documentation: Markdown.
 - Data templates: CSV, JSON, and Markdown.
 - Repository memory: `.project-memory/`.
-- Local factory workspace: `content-factory/` (development-time stand-in for the Media Workspace).
+- Local factory workspace: `content-factory/` (development-time stand-in for the Media Workspace, used by the original content-factory MVP commands).
+- Automation 1 implementation: `src/automation1/` (operates against the production Media Workspace, `~/Miles and Meals PH` by default).
 - Generated deliverables: `outputs/`.
 - Scratch or intermediate work: `work/`.
 
-No frontend framework, hosted database, queue, cloud deployment target, or AI provider has been selected yet.
+No frontend framework, hosted database, queue, cloud deployment target, or paid AI enhancement provider has been selected yet.
+
+## Automation 1 Implementation
+
+Automation 1 is implemented in `src/automation1/` as a modular pipeline:
+
+- `config.js` - resolves the Media Workspace root, enhancement provider name, queue concurrency, and stability-check timing from CLI options or environment variables (see `.env.example`).
+- `file-manager.js` - creates Automation 1 folders and lists candidate files.
+- `validator.js` - rejects unsupported extensions, empty files, and files still being written (size-stability check).
+- `queue.js` - a bounded-concurrency processing queue.
+- `providers/base-provider.js` - abstract `BaseEnhancementProvider` that all enhancement providers implement.
+- `providers/passthrough-provider.js` - the default `PassthroughEnhancementProvider`; copies the candidate file into `Enhanced/` unmodified.
+- `providers/index.js` - a provider registry (`createProvider`, `registerProvider`) so a future provider (OpenAI, Topaz, Adobe Firefly, etc.) can be added by registering a new `BaseEnhancementProvider` subclass, without changing `pipeline.js` or any other workflow code.
+- `logger.js` - structured JSON-line logging to `.automation1/logs/events.ndjson` inside the Media Workspace, mirrored to the console.
+- `state-store.js` - per-media JSON state persisted to `.automation1/state.json` inside the Media Workspace.
+- `watcher.js` - debounced `fs.watch` on `Instagram Candidates/` for continuous mode.
+- `pipeline.js` - orchestrates validation, the processing queue, the enhancement provider, file management, logging, and state for `init`, one-shot `run`, `status`, and continuous `watch`.
+
+CLI commands:
+
+```bash
+npm run automation1:init
+npm run automation1:run
+npm run automation1:status
+npm run automation1:watch
+```
+
+All commands accept `--root <path>` to target a different Media Workspace (used by tests to target a temporary directory instead of production media).
 
 ## Project Structure
 
@@ -89,9 +119,23 @@ docs/
 src/
   cli.js
   content-factory/
+  automation1/
+    config.js
+    file-manager.js
+    validator.js
+    queue.js
+    logger.js
+    state-store.js
+    watcher.js
+    pipeline.js
+    providers/
+      base-provider.js
+      passthrough-provider.js
+      index.js
 
 test/
   content-factory.test.js
+  automation1.test.js
 
 content-factory/
   RAW/

@@ -48,6 +48,24 @@ Decision: Automation 1 covers RAW -> AI Enhancement -> Enhanced -> Manual Lightr
 
 Reasoning: Gives every future feature a clear stage boundary to implement against, and makes the "stop here" points explicit so manual editing and manual publishing are never accidentally automated.
 
+## 2026-06-28 - Implement Automation 1 With a Pass-Through Provider Behind a Provider Abstraction
+
+Decision: Build the complete Automation 1 framework (watcher, validator, processing queue, file manager, logger, state, configuration) now, but use a temporary `PassthroughEnhancementProvider` for the enhancement step instead of integrating a paid AI provider. All providers implement a shared `BaseEnhancementProvider` interface and are obtained through a registry (`createProvider`/`registerProvider`).
+
+Reasoning: Lets the full production workflow be built, tested, and run today without committing to or paying for a specific AI enhancement vendor. A future provider (OpenAI, Topaz, Adobe Firefly, etc.) can be added by registering a new subclass, with zero changes to the pipeline, queue, validator, file manager, or logger.
+
+## 2026-06-28 - Automation 1 Operates Against the Production Media Workspace, Not `content-factory/`
+
+Decision: `src/automation1/` reads from and writes to the production Media Workspace (`~/Miles and Meals PH` by default, configurable via `AUTOMATION1_MEDIA_ROOT` or `--root`), including its own runtime state (`.automation1/state.json`) and logs (`.automation1/logs/events.ndjson`) stored inside the Media Workspace. The older `src/content-factory/` scaffold continues to operate on the repository-local `content-factory/` development workspace and was left unchanged.
+
+Reasoning: Keeps production creator media, and any state/logs derived from it, entirely out of the git repository, while still providing a separate local development/test path (`content-factory/`) for the original MVP commands.
+
+## 2026-06-28 - Automation 1 Watches Only `Instagram Candidates/`
+
+Decision: Automation 1 validates and enhances only files placed in `Instagram Candidates/`, not the full `RAW/` folder.
+
+Reasoning: RAW-to-candidate selection is a creative decision (per the Core Principle) that the creator must make manually; automating it would cross the Human/AI responsibility boundary documented in `docs/ARCHITECTURE.md`.
+
 ## 2026-06-28 - Separate the Development Repository From the Media Workspace
 
 Decision: This repository (`Miles-and-Meals`) holds code, documentation, automation, and project memory. The production Media Workspace (`Miles and Meals PH`) holds actual photos, videos, Lightroom assets, CapCut projects, and published media, and lives outside this repository.

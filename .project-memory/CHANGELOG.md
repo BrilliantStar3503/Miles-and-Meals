@@ -31,3 +31,11 @@
 - Recorded the corresponding decisions in `.project-memory/DECISIONS.md`.
 - Updated `.project-memory/PROJECT_STATE.md` and `.project-memory/SESSION_HANDOVER.md` to reflect the realignment.
 - No application code was changed in this update.
+- Implemented the complete Automation 1 framework in `src/automation1/`: configuration, folder watcher, validation, processing queue, file manager, structured logging, JSON state, and pipeline orchestration.
+- Implemented the enhancement provider abstraction (`BaseEnhancementProvider`) and the default `PassthroughEnhancementProvider`, with a registry (`createProvider`/`registerProvider`) for future providers.
+- Added CLI commands `automation1:init`, `automation1:run`, `automation1:status`, `automation1:watch` and matching `npm run` scripts.
+- Added `.env.example` for Automation 1 environment configuration and added `.env` to `.gitignore`.
+- Added `test/automation1.test.js` (6 tests, all passing) covering initialization, pass-through enhancement, invalid-file rejection, idempotent re-runs, and future-provider registration.
+- Documented Automation 1 in `docs/ARCHITECTURE.md` and a new `docs/FEATURES/automation-1.md`, and updated `README.md` with the new commands.
+- Recorded the corresponding decisions in `.project-memory/DECISIONS.md`.
+- No paid AI enhancement provider was integrated; Automation 1 uses the Pass-through provider only.

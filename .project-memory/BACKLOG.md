@@ -3,7 +3,7 @@
 ## Product Direction
 
 - Decide whether the next milestone is a dashboard, API service, or deeper local automation workflow.
-- Decide how this repository's `content-factory/` development workspace will eventually connect to the production Media Workspace (`Miles and Meals PH`).
+- Decide whether/how the older `content-factory/` development workspace and CLI should be retired or merged now that Automation 1 operates against the production Media Workspace directly.
 
 ## Miles & Meals Ecosystem
 
@@ -19,18 +19,23 @@
 
 ## AI Content Factory
 
-### Automation 1 (RAW -> Lightroom Ready)
+### Automation 1 (Instagram Candidates -> Lightroom Ready)
 
+Implemented: folder watcher, validation, processing queue, Pass-through enhancement provider behind a provider abstraction, file manager, logging, error handling, and configuration, operating against the production Media Workspace. See `docs/FEATURES/automation-1.md`.
+
+Remaining:
+
+- Integrate a real AI enhancement provider (OpenAI, Topaz, Adobe Firefly, or another) as a new `BaseEnhancementProvider` subclass.
 - Add EXIF and GPS extraction.
 - Add perceptual duplicate detection.
 - Add configurable trip/project grouping.
-- Add a natural AI enhancement provider adapter (replacing local-passthrough, preserving the authenticity boundary, stopping before manual Lightroom editing).
 - Add vision-model scene intelligence.
-- Add file watcher mode for `RAW/`.
+- Run `automation1:watch` continuously against real production media to validate long-running behavior.
 
 ### Automation 2 (Lightroom/Instagram Ready -> Posting Package)
 
-- Add file watcher mode for `Instagram Ready/`.
+- Port caption draft, hashtag, ALT text, and posting-package generation to operate against the production Media Workspace (currently only implemented in the `content-factory/` development scaffold).
+- Add file watcher mode for `Instagram Ready/` / `Lightroom Ready/`.
 - Add approval status transitions for manual review.
 - Add analytics import and history.
 - Add cloud storage sync.

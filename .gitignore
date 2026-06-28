@@ -2,6 +2,12 @@
 node_modules/
 .DS_Store
 
+# Local environment configuration (may contain machine-specific paths)
+.env
+
+# Automation 1 never stores production media inside this repository.
+# Production media lives in the external Media Workspace (~/Miles and Meals PH).
+
 # Runtime content factory state
 content-factory/content-factory-state.json
 content-factory/Logs/*.ndjson

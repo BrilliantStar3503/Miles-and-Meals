@@ -60,7 +60,18 @@ Run tests:
 npm test
 ```
 
-See `docs/ARCHITECTURE.md` for the full automation roadmap and authenticity/approval boundaries.
+## Automation 1
+
+Automation 1 validates and enhances selected Instagram candidate photos from the production Media Workspace, then stops for manual Lightroom editing. It uses a temporary Pass-through enhancement provider until a real AI provider is selected.
+
+```bash
+npm run automation1:init
+npm run automation1:run
+npm run automation1:status
+npm run automation1:watch
+```
+
+See `docs/FEATURES/automation-1.md` for configuration (`.env.example`) and the provider abstraction, and `docs/ARCHITECTURE.md` for the full automation roadmap and authenticity/approval boundaries.
 
 ## Repository Memory
 
