@@ -35,3 +35,21 @@ Reasoning: This preserves authenticity and avoids pretending AI enhancement is i
 Decision: Ignore local media, generated drafts, event logs, and runtime state while tracking `.gitkeep` placeholders for the factory folder structure.
 
 Reasoning: The GitHub repository is public and should not accidentally commit raw creator media, generated content drafts, or local operational data.
+
+## 2026-06-28 - AI Automates Repetitive Work; the Creator Retains All Creative Decisions
+
+Decision: Adopt this as the permanent Core Principle for all future automation in this repository.
+
+Reasoning: Establishes a clear, durable boundary between what AI is allowed to automate and what must remain a human responsibility, so future features cannot drift into automating creative or publishing decisions.
+
+## 2026-06-28 - Automation Is Split Into Two Bounded Stages
+
+Decision: Automation 1 covers RAW -> AI Enhancement -> Enhanced -> Manual Lightroom Editing -> Lightroom Ready, and stops there. Automation 2 covers Lightroom/Instagram Ready -> Caption Draft -> Hashtags -> ALT Text -> Posting Package -> Manual Review -> Manual Publish, and nothing publishes automatically.
+
+Reasoning: Gives every future feature a clear stage boundary to implement against, and makes the "stop here" points explicit so manual editing and manual publishing are never accidentally automated.
+
+## 2026-06-28 - Separate the Development Repository From the Media Workspace
+
+Decision: This repository (`Miles-and-Meals`) holds code, documentation, automation, and project memory. The production Media Workspace (`Miles and Meals PH`) holds actual photos, videos, Lightroom assets, CapCut projects, and published media, and lives outside this repository.
+
+Reasoning: Keeps real creator media out of the public development repository while giving automation code a clear, named external target to eventually integrate with.

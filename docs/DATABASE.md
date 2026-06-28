@@ -2,6 +2,8 @@
 
 No hosted database has been implemented yet.
 
+State tracked here describes media as it moves through the development workspace (`content-factory/`) in this repository. It does not describe the production Media Workspace (`Miles and Meals PH`), which is outside this repository and holds the actual photos, videos, Lightroom assets, CapCut projects, and published media.
+
 The current MVP uses a local JSON state file generated at:
 
 ```text

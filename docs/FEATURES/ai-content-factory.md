@@ -2,13 +2,13 @@
 
 ## Purpose
 
-The AI Content Factory is the first executable foundation for the Miles & Meals content operating system.
+The AI Content Factory automates the repetitive parts of content production so the creator can focus on creative decisions. It does not replace human judgment, editing, storytelling, brand voice, or publishing.
 
-It is designed as a modular local pipeline that can later swap in real AI enhancement, image recognition, publishing APIs, cloud storage, queues, retries, and dashboards.
+See `docs/ARCHITECTURE.md` for the full Core Principle, Human/AI responsibility split, and Automation Roadmap.
 
 ## Current MVP
 
-The current implementation provides a dependency-light Node.js CLI.
+The current implementation provides a dependency-light Node.js CLI covering the development-time stand-in for Automation 1 (up to Lightroom Ready) and the early stages of Automation 2 (draft generation, not posting or publishing).
 
 Commands:
 
@@ -39,6 +39,8 @@ Instagram Ready/
 -> pending approval state
 ```
 
+This mirrors Automation 1 and the early part of Automation 2 from `docs/ARCHITECTURE.md`. Manual Lightroom editing, CapCut editing, manual review, and manual publish are out of scope for this CLI by design.
+
 ## Current Modules
 
 - `src/cli.js` - command entry point.
@@ -54,20 +56,20 @@ Instagram Ready/
 
 The current enhancement adapter is intentionally `local-passthrough`.
 
-It copies RAW files into `Enhanced/` and records the action in state. It does not alter pixels, invent scenery, modify faces, or fabricate edits. Real enhancement providers must preserve the same authenticity boundary.
+It copies RAW files into `Enhanced/` and records the action in state. It does not alter pixels, invent scenery, modify faces, or fabricate edits. A future "natural AI enhancement" adapter must preserve the same authenticity boundary, and must stop short of the manual Lightroom editing stage.
 
 ## Approval Boundary
 
 Generated drafts are always marked `pending_approval`.
 
-Publishing is not implemented. Nothing can publish automatically in the current MVP.
+Publishing is not implemented. Nothing can publish automatically, in the current MVP or in the target architecture. Manual review and manual publish are permanent human responsibilities.
 
 ## Next Integrations
 
 - EXIF and GPS extraction.
 - Perceptual duplicate detection.
-- Real image enhancement adapter.
+- Natural AI enhancement adapter (stopping before Lightroom editing).
 - Vision-model scene analysis.
-- Approval dashboard.
-- Publishing API adapters.
-- Analytics storage.
+- Hashtag and ALT text generation for the posting package.
+- Approval dashboard for manual review.
+- Logging improvements across watch-folder events.

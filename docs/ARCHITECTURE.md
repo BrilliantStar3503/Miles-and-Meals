@@ -4,7 +4,65 @@
 
 This repository is the long-term source of truth for Miles & Meals, a premium travel brand and AI-assisted content production ecosystem.
 
-The current repository contains the project memory system, the first generated deliverable, and the first executable AI Content Factory CLI scaffold.
+## Core Principle
+
+AI automates repetitive work. The creator retains all creative decisions.
+
+## Human Responsibilities
+
+- Photography
+- Videography
+- Lightroom editing
+- CapCut editing
+- Storytelling
+- Brand voice
+- Publishing approval
+
+## AI Responsibilities
+
+- Watch folders
+- Validate media
+- Natural AI enhancement
+- Organize files
+- Scene detection
+- Metadata generation
+- Caption drafts
+- Hashtags
+- ALT text
+- Logging
+
+## Automation Roadmap
+
+### Automation 1
+
+```text
+RAW
+  -> AI Enhancement
+  -> Enhanced
+  -> Manual Lightroom Editing
+  -> Lightroom Ready
+```
+
+Automation stops here. Lightroom editing is a human responsibility.
+
+### Automation 2
+
+```text
+Lightroom Ready / Instagram Ready
+  -> Caption Draft
+  -> Hashtags
+  -> ALT Text
+  -> Posting Package
+  -> Manual Review
+  -> Manual Publish
+```
+
+Nothing publishes automatically. A human always reviews and publishes.
+
+## Storage
+
+- **Development Repository** (`Miles-and-Meals`) - this repository. Contains code, documentation, automation, and project memory.
+- **Media Workspace** (`Miles and Meals PH`) - a separate location containing photos, videos, Lightroom assets, CapCut projects, and published media. Not part of this repository.
 
 ## Current Technology
 
@@ -14,7 +72,7 @@ The current repository contains the project memory system, the first generated d
 - Documentation: Markdown.
 - Data templates: CSV, JSON, and Markdown.
 - Repository memory: `.project-memory/`.
-- Local factory workspace: `content-factory/`.
+- Local factory workspace: `content-factory/` (development-time stand-in for the Media Workspace).
 - Generated deliverables: `outputs/`.
 - Scratch or intermediate work: `work/`.
 
@@ -75,8 +133,9 @@ work/
 - Generated user-facing artifacts live in `outputs/`.
 - Temporary or exploratory files belong in `work/`.
 - The first executable implementation is a local Node.js CLI with no third-party dependencies.
-- The enhancement adapter is currently `local-passthrough`, which copies originals without modifying pixels.
+- The enhancement adapter is currently `local-passthrough`, which copies originals without modifying pixels. A future "natural AI enhancement" adapter must preserve the same authenticity boundary: it may correct exposure, color, and composition cues, but it must not invent scenery, fabricate edits, or alter the substance of a photo.
 - Runtime media, generated drafts, and local state are ignored by git by default.
+- `content-factory/` in this repository is a local development workspace, not the production Media Workspace. The production Media Workspace is `Miles and Meals PH`, outside this repository.
 
 ## Coding Conventions
 
@@ -87,4 +146,4 @@ work/
 - Add focused tests for behavior with meaningful risk.
 - Keep pipeline stages modular and replaceable.
 - Do not auto-publish content; generated content remains a draft until human approval.
-- Preserve authenticity boundaries when adding AI adapters.
+- Automation stops at Lightroom Ready in Automation 1, and at the posting package in Automation 2. Do not automate Lightroom editing, CapCut editing, storytelling, brand voice decisions, or publishing.

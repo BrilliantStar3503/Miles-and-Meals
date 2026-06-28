@@ -20,3 +20,14 @@
 - Added tests for the content factory pipeline.
 - Added `.gitignore` protections for creator media and runtime state.
 - Pushed the AI Content Factory MVP to GitHub.
+
+## 2026-06-28
+
+- Realigned `README.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, and `docs/FEATURES/ai-content-factory.md` with the current Miles & Meals vision.
+- Documented the Core Principle: AI automates repetitive work; the creator retains all creative decisions.
+- Documented the Human Responsibilities and AI Responsibilities lists.
+- Documented the two-stage Automation Roadmap (Automation 1 stops at Lightroom Ready; Automation 2 stops at manual review/manual publish).
+- Documented the Development Repository (`Miles-and-Meals`) vs. Media Workspace (`Miles and Meals PH`) storage model.
+- Recorded the corresponding decisions in `.project-memory/DECISIONS.md`.
+- Updated `.project-memory/PROJECT_STATE.md` and `.project-memory/SESSION_HANDOVER.md` to reflect the realignment.
+- No application code was changed in this update.
