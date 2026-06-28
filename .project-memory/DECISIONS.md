@@ -66,6 +66,12 @@ Decision: Automation 1 validates and enhances only files placed in `Instagram Ca
 
 Reasoning: RAW-to-candidate selection is a creative decision (per the Core Principle) that the creator must make manually; automating it would cross the Human/AI responsibility boundary documented in `docs/ARCHITECTURE.md`.
 
+## 2026-06-28 - Validate Automation 1 Against Production Before Starting Automation 2
+
+Decision: Before any Automation 2 work, validate Automation 1 against the real `~/Miles and Meals PH` workspace, using only synthetic test data, and document operator usage and any issues found rather than fixing them immediately.
+
+Reasoning: Confirms the implementation works against the actual production path (not just temp directories in tests) before depending on it for real travel, while keeping this validation pass separate from new feature work.
+
 ## 2026-06-28 - Separate the Development Repository From the Media Workspace
 
 Decision: This repository (`Miles-and-Meals`) holds code, documentation, automation, and project memory. The production Media Workspace (`Miles and Meals PH`) holds actual photos, videos, Lightroom assets, CapCut projects, and published media, and lives outside this repository.

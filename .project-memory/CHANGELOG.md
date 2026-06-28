@@ -39,3 +39,7 @@
 - Documented Automation 1 in `docs/ARCHITECTURE.md` and a new `docs/FEATURES/automation-1.md`, and updated `README.md` with the new commands.
 - Recorded the corresponding decisions in `.project-memory/DECISIONS.md`.
 - No paid AI enhancement provider was integrated; Automation 1 uses the Pass-through provider only.
+- Verified the production Media Workspace (`~/Miles and Meals PH`) and created the required folder structure (`Trips/`, `Instagram Candidates/`, `Enhanced/`, `Lightroom Ready/`, `Instagram Ready/`, `.automation1/`) without modifying any existing media.
+- Verified the Automation 1 watcher end-to-end against the real production workspace using a synthetic test file only; cleaned up the synthetic file and reset state/logs afterward.
+- Added `docs/OPERATOR_GUIDE.md` for day-to-day field use of Automation 1.
+- Identified and documented (not fixed) a missing `error` handler on `fs.watch` in `src/automation1/watcher.js` that could crash `automation1:watch` if the watched folder becomes briefly unavailable.

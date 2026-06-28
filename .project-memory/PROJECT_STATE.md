@@ -2,7 +2,7 @@
 
 ## Status
 
-Automation 1 has been implemented as a production-ready, modular framework operating against the production Media Workspace (`~/Miles and Meals PH` by default), using a temporary Pass-through enhancement provider. No paid AI enhancement provider has been integrated yet.
+Automation 1 has been implemented as a production-ready, modular framework operating against the production Media Workspace (`~/Miles and Meals PH` by default), using a temporary Pass-through enhancement provider. No paid AI enhancement provider has been integrated yet. Automation 1 has now been validated against the real production Media Workspace folder structure and is ready for real travel use, with one known issue (see Known Issues).
 
 ## Completed
 
@@ -15,6 +15,9 @@ Automation 1 has been implemented as a production-ready, modular framework opera
 - Updated `README.md`, `docs/ARCHITECTURE.md`, and added `docs/FEATURES/automation-1.md` to document the implementation.
 - Updated `.gitignore` to ignore `.env`.
 - Verified `npm test` passes (9/9) and manually exercised the CLI against a temporary workspace.
+- Verified the production Media Workspace (`~/Miles and Meals PH`) and created the missing required folders (`Trips/`, `Instagram Candidates/`, `Enhanced/`, `Lightroom Ready/`, `Instagram Ready/`, `.automation1/`) without modifying any existing media (the workspace had no media at the time).
+- Ran `automation1:watch` against the real production workspace with a synthetic, self-created test file (not real media); confirmed the watcher detects new files, validates them, and writes the enhanced copy to `Enhanced/`. Removed the synthetic file and reset `.automation1/state.json` and the event log afterward so the production workspace is clean.
+- Added `docs/OPERATOR_GUIDE.md` for day-to-day field use (import, candidate selection, starting/stopping Automation 1, verifying processing, where output appears).
 
 ## Work In Progress
 
@@ -26,14 +29,15 @@ Automation 1 has been implemented as a production-ready, modular framework opera
 - Automation 1 only watches `Instagram Candidates/`, not `RAW/`; RAW-to-candidate selection remains a manual/creative step, consistent with the Core Principle.
 - Scene intelligence, preset recommendation, and draft generation (Automation 2 concerns) still live only in the older `src/content-factory/` development scaffold and have not been ported to operate against the production Media Workspace.
 - No hosted database, queue, dashboard, or deployment target has been selected yet.
-- `automation1:watch` has not been run continuously against a real production folder in this session; it has been exercised via its one-shot `run` path and unit tests only.
+- `src/automation1/watcher.js` does not attach an `error` handler to the underlying `fs.watch` instance. If the watched folder becomes briefly unavailable (e.g. an external/network drive is ejected, or the folder is renamed while `automation1:watch` is running), Node will crash the watch process with an unhandled error instead of logging and recovering. This should be fixed before relying on `automation1:watch` unattended for a full trip.
 
 ## Priorities
 
-1. Select and integrate a real AI enhancement provider (e.g. OpenAI, Topaz, Adobe Firefly) behind the existing `BaseEnhancementProvider` abstraction.
-2. Port Automation 2 (caption draft, hashtags, ALT text, posting package, manual review) to operate against the production Media Workspace the way Automation 1 now does.
-3. Add EXIF and GPS extraction to Automation 1.
-4. Prototype the approval dashboard for manual review (Automation 2).
+1. Add an `error` handler to `src/automation1/watcher.js` so `automation1:watch` logs and recovers instead of crashing if the watched folder briefly becomes unavailable. Recommended before relying on the watcher unattended for a full trip.
+2. Select and integrate a real AI enhancement provider (e.g. OpenAI, Topaz, Adobe Firefly) behind the existing `BaseEnhancementProvider` abstraction.
+3. Port Automation 2 (caption draft, hashtags, ALT text, posting package, manual review) to operate against the production Media Workspace the way Automation 1 now does.
+4. Add EXIF and GPS extraction to Automation 1.
+5. Prototype the approval dashboard for manual review (Automation 2).
 
 ## Next Steps
 
