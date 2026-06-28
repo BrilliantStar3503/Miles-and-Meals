@@ -24,7 +24,7 @@ test("initializeAutomation1 creates the required Automation 1 folders", async ()
   const result = await initializeAutomation1({ root });
 
   assert.equal(result.root, root);
-  assert.equal(result.provider, "passthrough");
+  assert.equal(result.provider, "cloudinary");
   await fs.access(path.join(root, "Instagram Candidates"));
   await fs.access(path.join(root, "Enhanced"));
   await fs.access(path.join(root, "Lightroom Ready"));
@@ -36,8 +36,8 @@ test("runAutomation1 validates and enhances candidate media using the pass-throu
   await initializeAutomation1({ root });
   await fs.writeFile(path.join(root, "Instagram Candidates", "swiss-mountain-lake.jpg"), "fake-image-bytes");
 
-  const result = await runAutomation1({ root, stabilityCheckMs: 0 });
-  const status = await getAutomation1Status({ root });
+  const result = await runAutomation1({ root, provider: "passthrough", stabilityCheckMs: 0 });
+  const status = await getAutomation1Status({ root, provider: "passthrough" });
 
   assert.equal(result.candidateCount, 1);
   assert.equal(result.processed, 1);
@@ -53,8 +53,8 @@ test("runAutomation1 marks unsupported files as invalid and does not copy them",
   await initializeAutomation1({ root });
   await fs.writeFile(path.join(root, "Instagram Candidates", "notes.txt"), "not an image");
 
-  const result = await runAutomation1({ root, stabilityCheckMs: 0 });
-  const status = await getAutomation1Status({ root });
+  const result = await runAutomation1({ root, provider: "passthrough", stabilityCheckMs: 0 });
+  const status = await getAutomation1Status({ root, provider: "passthrough" });
 
   assert.equal(result.invalid, 1);
   assert.equal(result.processed, 0);
@@ -67,8 +67,8 @@ test("runAutomation1 is idempotent and skips media already enhanced", async () =
   await initializeAutomation1({ root });
   await fs.writeFile(path.join(root, "Instagram Candidates", "cafe-paris.jpg"), "fake-image-bytes");
 
-  const first = await runAutomation1({ root, stabilityCheckMs: 0 });
-  const second = await runAutomation1({ root, stabilityCheckMs: 0 });
+  const first = await runAutomation1({ root, provider: "passthrough", stabilityCheckMs: 0 });
+  const second = await runAutomation1({ root, provider: "passthrough", stabilityCheckMs: 0 });
 
   assert.equal(first.processed, 1);
   assert.equal(second.processed, 0);
@@ -154,6 +154,98 @@ test("watchAutomation1 logs and survives a failing run instead of crashing", asy
   assert.equal(status.failedCount, 1);
 });
 
+test("createProvider returns the Cloudinary provider as the official Natural Travel Enhancement Profile provider", () => {
+  const provider = createProvider("cloudinary");
+  assert.equal(provider.name, "cloudinary");
+});
+
+test("the Cloudinary provider fails clearly when credentials are missing, preserves originals, and keeps processing other files", async () => {
+  const root = await createTempWorkspace();
+  await initializeAutomation1({ root });
+  await fs.writeFile(path.join(root, "Instagram Candidates", "no-creds-a.jpg"), "fake-image-bytes-a");
+  await fs.writeFile(path.join(root, "Instagram Candidates", "no-creds-b.jpg"), "fake-image-bytes-b");
+
+  delete process.env.CLOUDINARY_CLOUD_NAME;
+  delete process.env.CLOUDINARY_API_KEY;
+  delete process.env.CLOUDINARY_API_SECRET;
+
+  const result = await runAutomation1({ root, provider: "cloudinary", stabilityCheckMs: 0 });
+
+  assert.equal(result.failed, 2);
+  assert.equal(result.processed, 0);
+
+  const enhancedEntries = await fs.readdir(path.join(root, "Enhanced"));
+  assert.deepEqual(enhancedEntries, []);
+
+  const originalA = await fs.readFile(path.join(root, "Instagram Candidates", "no-creds-a.jpg"), "utf8");
+  const originalB = await fs.readFile(path.join(root, "Instagram Candidates", "no-creds-b.jpg"), "utf8");
+  assert.equal(originalA, "fake-image-bytes-a");
+  assert.equal(originalB, "fake-image-bytes-b");
+
+  const status = await getAutomation1Status({ root, provider: "cloudinary" });
+  assert.equal(status.failedCount, 2);
+});
+
+test("the Cloudinary provider uploads, downloads, and atomically writes the enhanced image", async () => {
+  const root = await createTempWorkspace();
+  await initializeAutomation1({ root });
+  await fs.writeFile(path.join(root, "Instagram Candidates", "swiss-mountain-lake.jpg"), "original-bytes");
+
+  process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
+  process.env.CLOUDINARY_API_KEY = "test-key";
+  process.env.CLOUDINARY_API_SECRET = "test-secret";
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = createCloudinaryFetchMock();
+
+  try {
+    const result = await runAutomation1({ root, provider: "cloudinary", stabilityCheckMs: 0 });
+    assert.equal(result.processed, 1);
+    assert.equal(result.failed, 0);
+
+    const enhancedContents = await fs.readFile(path.join(root, "Enhanced", "swiss-mountain-lake.jpg"), "utf8");
+    assert.equal(enhancedContents, "enhanced-bytes");
+
+    const enhancedDirEntries = await fs.readdir(path.join(root, "Enhanced"));
+    assert.ok(!enhancedDirEntries.some((name) => name.includes(".tmp-")));
+
+    const config = createConfig({ root, provider: "cloudinary" });
+    const state = await readState(config);
+    const mediaEntry = Object.values(state.media)[0];
+    assert.equal(mediaEntry.enhancement.provider, "cloudinary");
+    assert.match(mediaEntry.enhancement.profile, /Miles & Meals Natural Travel Enhancement Profile/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.CLOUDINARY_CLOUD_NAME;
+    delete process.env.CLOUDINARY_API_KEY;
+    delete process.env.CLOUDINARY_API_SECRET;
+  }
+});
+
+test("the Cloudinary provider still succeeds even if deleting the temporary cloud copy fails", async () => {
+  const root = await createTempWorkspace();
+  await initializeAutomation1({ root });
+  await fs.writeFile(path.join(root, "Instagram Candidates", "cafe-paris.jpg"), "original-bytes");
+
+  process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
+  process.env.CLOUDINARY_API_KEY = "test-key";
+  process.env.CLOUDINARY_API_SECRET = "test-secret";
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = createCloudinaryFetchMock({ failDestroy: true });
+
+  try {
+    const result = await runAutomation1({ root, provider: "cloudinary", stabilityCheckMs: 0 });
+    assert.equal(result.processed, 1);
+    assert.equal(result.failed, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.CLOUDINARY_CLOUD_NAME;
+    delete process.env.CLOUDINARY_API_KEY;
+    delete process.env.CLOUDINARY_API_SECRET;
+  }
+});
+
 test("watchCandidates retries after a watcher error instead of crashing the process", async () => {
   const root = await createTempWorkspace();
   const config = await initializeAutomation1({ root }).then(() => createConfig({ root }));
@@ -169,6 +261,32 @@ test("watchCandidates retries after a watcher error instead of crashing the proc
   handle.close();
   assert.ok(runCount >= 1);
 });
+
+function createCloudinaryFetchMock({
+  enhancedUrl = "https://res.cloudinary.com/mock/enhanced.jpg",
+  enhancedBytes = "enhanced-bytes",
+  failDestroy = false
+} = {}) {
+  return async (url) => {
+    const urlString = String(url);
+
+    if (urlString.includes("/image/upload")) {
+      return new Response(JSON.stringify({ eager: [{ secure_url: enhancedUrl }] }), { status: 200 });
+    }
+
+    if (urlString === enhancedUrl) {
+      return new Response(enhancedBytes, { status: 200 });
+    }
+
+    if (urlString.includes("/image/destroy")) {
+      return failDestroy
+        ? new Response("destroy failed", { status: 500 })
+        : new Response(JSON.stringify({ result: "ok" }), { status: 200 });
+    }
+
+    throw new Error(`Unexpected fetch call in test: ${urlString}`);
+  };
+}
 
 class AlwaysFailingProvider extends BaseEnhancementProvider {
   constructor() {

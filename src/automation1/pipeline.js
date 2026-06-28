@@ -53,7 +53,7 @@ async function processFile({ filePath, config, state, provider, logger, summary 
   }
 
   try {
-    const result = await provider.enhance({ sourcePath: filePath, destinationPath });
+    const result = await provider.enhance({ sourcePath: filePath, destinationPath, mediaId: id });
     state.media[id] = {
       id,
       filename,

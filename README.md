@@ -62,7 +62,7 @@ npm test
 
 ## Automation 1
 
-Automation 1 validates and enhances selected Instagram candidate photos from the production Media Workspace, then stops for manual Lightroom editing. It uses a temporary Pass-through enhancement provider until a real AI provider is selected.
+Automation 1 validates and enhances selected Instagram candidate photos from the production Media Workspace, then stops for manual Lightroom editing. It applies the Miles & Meals Natural Travel Enhancement Profile via Cloudinary by default (requires Cloudinary credentials; see `docs/FEATURES/automation-1.md`), with a Pass-through fallback provider for offline use.
 
 ```bash
 npm run automation1:init

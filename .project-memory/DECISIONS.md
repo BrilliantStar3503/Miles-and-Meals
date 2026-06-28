@@ -90,6 +90,24 @@ Decision: `src/automation2/` duplicates Automation 1's queue, logger, state-stor
 
 Reasoning: Automation 1 was just declared frozen and Production Ready. Refactoring its internals to extract shared utilities would risk regressing tested, hardened code for a modest reduction in duplication. Building Automation 2 to the same reliability standard independently keeps both automations consistent without touching what's already frozen.
 
+## 2026-06-28 - Replace the Pass-Through Provider's Default Role With Cloudinary, a Non-Generative AI Correction Engine
+
+Decision: Make `CloudinaryEnhancementProvider` (registered as `"cloudinary"`) the default Automation 1 enhancement provider, applying the official **Miles & Meals Natural Travel Enhancement Profile**. The profile uses only Cloudinary's deterministic, per-pixel automatic correction effects (`e_viesus_correct` plus capped contrast/color/vibrance/sharpening) — no generative or diffusion-based effects of any kind.
+
+Reasoning: The enhancement rules explicitly forbid hallucination, scene invention, cropping, sky replacement, weather changes, and adding/removing people or buildings. A generative model (e.g. an image-diffusion edit API) cannot structurally guarantee any of that — it can only be prompted not to, which is not a guarantee. A deterministic, non-generative correction engine guarantees it by construction: it has no mechanism to add image content that wasn't already in the original photo. This was judged a stronger fit for the stated goal ("look professionally edited in Lightroom," not "look AI-edited") than a generative alternative.
+
+## 2026-06-28 - Keep the Pass-Through Provider as an Explicit Fallback, Not Remove It
+
+Decision: `PassthroughEnhancementProvider` remains registered as `"passthrough"` and fully functional; it is no longer the default, but it was not deleted.
+
+Reasoning: It's a documented, zero-dependency escape hatch for offline development/testing and for real use before Cloudinary credentials are configured. Removing it would have forced every test and every credential-less run to fail instead of degrading gracefully, with no benefit — the provider abstraction is explicitly designed to support multiple registered providers at once.
+
+## 2026-06-28 - Do Not Add Scene Detection to Satisfy the Per-Scene Enhancement Guidance
+
+Decision: The Natural Travel Enhancement Profile is a single, uniform transformation chain applied to every photo, relying on Cloudinary's Viesus engine to adapt its correction per image automatically. No scene-detection step (outdoor/indoor/snow/night/etc.) was added to Automation 1.
+
+Reasoning: The task instructions required preserving the existing Automation 1 workflow and verifying it "remains unchanged except for replacing the Pass-through provider." Adding scene detection would have expanded the workflow (a new analysis stage before enhancement) beyond a provider swap. The chosen correction engine is itself content-aware/adaptive per image, which satisfies the spirit of the per-scene guidance without adding a new pipeline stage; true per-scene branching is recorded as a possible future enhancement, not done here.
+
 ## 2026-06-28 - Separate the Development Repository From the Media Workspace
 
 Decision: This repository (`Miles-and-Meals`) holds code, documentation, automation, and project memory. The production Media Workspace (`Miles and Meals PH`) holds actual photos, videos, Lightroom assets, CapCut projects, and published media, and lives outside this repository.

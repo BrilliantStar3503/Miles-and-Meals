@@ -1,6 +1,10 @@
 import { PassthroughEnhancementProvider } from "./passthrough-provider.js";
+import { CloudinaryEnhancementProvider } from "./cloudinary-provider.js";
 
-const providerFactories = new Map([["passthrough", () => new PassthroughEnhancementProvider()]]);
+const providerFactories = new Map([
+  ["passthrough", () => new PassthroughEnhancementProvider()],
+  ["cloudinary", () => new CloudinaryEnhancementProvider()]
+]);
 
 export function registerProvider(name, factory) {
   providerFactories.set(name, factory);

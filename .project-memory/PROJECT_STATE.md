@@ -2,35 +2,28 @@
 
 ## Status
 
-Automation 1 is feature-complete, validated, hardened, and frozen pending real-world usage. Automation 2 has now been implemented: it watches `Instagram Ready/` and generates draft posting packages (caption, hashtags, ALT text, checklist) in `Posting Package/`. Automation 2 never publishes and never connects to Instagram. No paid AI enhancement provider has been integrated, and no real image/vision analysis exists in either automation.
+Automation 1's Pass-through provider has been replaced as the default enhancement provider by a real AI enhancement provider: `CloudinaryEnhancementProvider`, implementing the official **Miles & Meals Natural Travel Enhancement Profile**. `PassthroughEnhancementProvider` remains registered as an offline/no-credentials fallback. The provider abstraction (`BaseEnhancementProvider`, `createProvider`/`registerProvider`) and the rest of the Automation 1 pipeline were not changed. Automation 2 is unaffected and remains as previously implemented (template-based, no image analysis).
 
 ## Completed
 
-### Automation 1 (frozen, Production Ready)
+### Automation 1 (Production Ready; Pass-through replaced with a real provider this session)
 
-- Implemented `src/automation1/` (config, validation, processing queue, file management, structured logging, JSON state, folder watching, pipeline orchestration) with a `BaseEnhancementProvider` abstraction and the default `PassthroughEnhancementProvider`.
+- Implemented `src/automation1/` (config, validation, processing queue, file management, structured logging, JSON state, folder watching, pipeline orchestration) with a `BaseEnhancementProvider` abstraction.
 - Hardened for production: watcher error handling with bounded retry, atomic state writes with corrupted-state recovery, atomic enhanced-file writes with temp-file cleanup, validation-time error handling, and graceful `SIGINT`/`SIGTERM` shutdown.
-- Verified against the real production Media Workspace (`~/Miles and Meals PH`) using synthetic test data only; 14 tests passing.
-- See `.project-memory/SESSION_HANDOVER.md` history and `docs/FEATURES/automation-1.md` for full detail.
+- **This session:** added `src/automation1/providers/cloudinary-provider.js` (`CloudinaryEnhancementProvider`, registered as `"cloudinary"`) and made it the default provider (`AUTOMATION1_ENHANCEMENT_PROVIDER` defaults to `"cloudinary"` in `src/automation1/config.js`, previously `"passthrough"`).
+  - Added `src/automation1/providers/enhancement-profile.js` defining the official **Miles & Meals Natural Travel Enhancement Profile**: a Cloudinary transformation chain (`e_viesus_correct/e_auto_contrast:25/e_auto_color:25/e_vibrance:20/e_sharpen:40`) using only deterministic, per-pixel correction effects — no generative/diffusion effects. This is a structural guarantee, not just an instruction: the profile cannot crop, replace the sky, change weather, add/remove people or buildings, invent scenery, hallucinate details, or change the location, because none of the effects used are capable of adding image content that wasn't already in the original photo.
+  - `CloudinaryEnhancementProvider.enhance()`: signs and uploads the candidate photo to the user's Cloudinary account, applies the enhancement profile as an eager transformation, downloads the result, writes it atomically (temp file + rename) into `Enhanced/`, then deletes the temporary cloud copy by default (`CLOUDINARY_DELETE_AFTER_DOWNLOAD=true`) so creator media isn't retained on a third-party service. Cleanup-deletion failures are logged as warnings only and do not fail the overall enhancement.
+  - Configuration is fully environment-driven, no credentials hardcoded: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (required), `CLOUDINARY_UPLOAD_FOLDER`, `CLOUDINARY_ENHANCEMENT_TRANSFORMATION`, `CLOUDINARY_DELETE_AFTER_DOWNLOAD` (optional, with defaults).
+  - `PassthroughEnhancementProvider` was not removed — it remains registered as `"passthrough"` and works as before, as an explicit offline/no-credentials fallback (`AUTOMATION1_ENHANCEMENT_PROVIDER=passthrough`).
+  - `pipeline.js`'s `processFile` now passes `mediaId` to `provider.enhance(...)` (used by the Cloudinary provider to build a stable `public_id`); this is the only change to the pipeline itself — validation, the processing queue, file management, logging, and state handling are unchanged.
+  - Error handling verified to match the spec: if `enhance()` throws (missing credentials, failed upload, network error), the original file in `Instagram Candidates/` is never touched, no partial file is left in `Enhanced/` (atomic write), the error is logged and recorded in state as `failed`, and the queue continues processing the remaining files independently.
+- Updated `test/automation1.test.js`: existing tests that depended on the old default now explicitly pass `provider: "passthrough"` (pipeline behavior is identical regardless of provider, demonstrating the abstraction holds); the default-provider assertion was updated to `"cloudinary"`. Added tests mocking `globalThis.fetch` to verify (a) missing-credentials error handling end-to-end through the pipeline (2 files, both fail independently, originals untouched, queue still completes), (b) a full mocked upload → eager-transform → download → atomic-write round trip, including verifying `state.json` records the enhancement profile name, and (c) that a failed cleanup-deletion does not fail the overall enhancement. No real network calls or credentials are required to run the test suite.
+- `npm test`: 27/27 passing (15 in `automation1.test.js` — 11 prior + 4 new Cloudinary-specific — plus 9 in `automation2.test.js` and 3 in `content-factory.test.js`).
+- Manually verified against the real production Media Workspace (`~/Miles and Meals PH`, which now contains real creator photos from genuine prior usage): ran `automation1:run` with no Cloudinary credentials configured — confirmed it correctly skipped the 6 already-enhanced real photos (never re-processed or overwrote them) and only the one synthetic test file failed with a clear "Missing required environment variable" message; confirmed with `--provider passthrough` that the fallback still works; cleaned up the synthetic file and its `state.json`/log entries afterward without touching any real photo or its existing state.
 
-### Automation 2 (this session)
+### Automation 2 (no changes this session)
 
-- Implemented `src/automation2/`, mirroring Automation 1's module shape and reliability standard from the start (not bolted on after the fact):
-  - `config.js`, `file-manager.js`, `validator.js`, `queue.js`, `logger.js`, `state-store.js`, `watcher.js`, `pipeline.js`, `posting-package.js`.
-  - Watches only `Instagram Ready/`. Lists all non-hidden files (not pre-filtered by extension) so unsupported files are still validated and counted as `invalid`, consistent with Automation 1's pattern.
-  - Generates one Markdown posting package per image in a new `Posting Package/` folder, named after the image (e.g. `sunset-beach.jpg` -> `Posting Package/sunset-beach.md`).
-  - Posting package contains: image filename/path, a draft caption with a `Location: __________` placeholder (never assumes a location, never invents an experience or fact), a small reusable hashtag set, ALT text explicitly labeled as a filename-based draft (Automation 2 does not analyze image content), a posting checklist (caption reviewed, location verified, hashtags reviewed, ALT text reviewed, image quality checked, ready to publish), and a processing log entry.
-  - Every package ends with an explicit statement that it is a draft and that Automation 2 does not publish, does not connect to Instagram, and did not modify the image.
-  - Reuses `SUPPORTED_IMAGE_EXTENSIONS` from `src/automation1/config.js` (a shared read-only constant); otherwise fully independent of `src/automation1/` so Automation 1 was not touched.
-  - Hardened from the start: watcher error handling with bounded retry and a clear fatal/restart message, atomic state writes with corrupted-state recovery, atomic posting-package writes with temp-file cleanup on failure, and graceful `SIGINT`/`SIGTERM` shutdown that awaits in-flight work.
-  - Never overwrites an existing posting package — `postingPackageExists()` is checked before generating; a pre-existing `.md` file is left untouched and counted as `skipped`.
-  - `ensureDirectories()` only creates `Instagram Ready/` (if missing) and the new `Posting Package/` folder; no other folder is touched.
-- Added CLI commands `automation2:init`, `automation2:run`, `automation2:status`, `automation2:watch` to `src/cli.js` and corresponding `npm run` scripts.
-- Added `.env.example` entries for `AUTOMATION2_MEDIA_ROOT`, `AUTOMATION2_QUEUE_CONCURRENCY`, `AUTOMATION2_STABILITY_CHECK_MS`.
-- Added `test/automation2.test.js` (9 tests) covering: folder creation, full posting-package content (caption/placeholder/hashtags/ALT text/checklist/log/disclaimer), never-overwrite behavior, invalid-file rejection, idempotent re-runs, atomic/corrupted state handling, posting-package write failure cleanup, and the watcher surviving a failing run without crashing.
-- `npm test` passes 23/23 total: 11 in `automation1.test.js`, 9 in `automation2.test.js`, 3 in `content-factory.test.js`.
-- Verified manually against the real production Media Workspace (`~/Miles and Meals PH`): ran `automation2:init` and a synthetic-file `automation2:run`, confirmed the generated Markdown package matched all requirements, confirmed no existing folder (`Trips/`, `Instagram Candidates/`, `Enhanced/`, `Lightroom Ready/`, `.automation1/`) was touched, and cleaned up the synthetic file/state/log afterward so the workspace remains empty and pristine.
-- Added `docs/FEATURES/automation-2.md`; updated `docs/ARCHITECTURE.md`, `README.md`, and `docs/OPERATOR_GUIDE.md` (renamed to cover both automations) to document Automation 2.
+- See prior session history below and `docs/FEATURES/automation-2.md`. Still template-based with no image analysis; unaffected by this change.
 
 ## Work In Progress
 
@@ -38,22 +31,24 @@ Automation 1 is feature-complete, validated, hardened, and frozen pending real-w
 
 ## Known Issues / Remaining Limitations
 
-- Automation 1: Pass-through provider only, no real AI enhancement provider integrated yet.
-- Automation 2: captions, hashtags, and ALT text are template-based and filename-derived only — there is no real image/vision analysis. This is intentional (the requirements explicitly forbid inferring or inventing anything not actually known), not a defect, but it means every posting package requires real human review before publishing, by design.
+- The Cloudinary provider has not been exercised against a real Cloudinary account with real credentials in this session (no credentials were available in this environment) — it has been verified via mocked HTTP calls and against the missing-credentials error path on real production data. The user should run a small real test batch (a few photos) after configuring credentials, before trusting it for a full trip's worth of photos.
+- The enhancement profile is a single, scene-adaptive transformation (relying on Cloudinary's Viesus engine to adapt per-image automatically); there is no scene-detection step in Automation 1, so the spec's per-scene guidance (outdoor sunny, indoor, snow, night, etc.) is satisfied adaptively rather than via separate hardcoded branches per scene. Adding true scene detection was out of scope (would expand the workflow) and is not implemented.
+- A photo is briefly uploaded to Cloudinary's servers during enhancement (and deleted immediately afterward by default). This is an inherent tradeoff of using any cloud-based enhancement API; documented in `docs/FEATURES/automation-1.md` under Cloudinary Setup.
+- Cloudinary cost estimates in the documentation are approximate and may be out of date; current pricing should be checked at cloudinary.com/pricing before high-volume use.
+- Automation 2: captions, hashtags, and ALT text are template-based and filename-derived only — there is no real image/vision analysis. This is intentional (the requirements explicitly forbid inferring or inventing anything not actually known), not a defect.
 - Neither automation has log rotation; fine for normal trip-length usage, would need revisiting under sustained continuous operation.
 - No hosted database, queue, dashboard, or deployment target has been selected yet.
 - The older `src/content-factory/` scaffold (scene intelligence, preset recommendation, draft generation) still exists alongside both automations and has not been retired; it operates on the separate local `content-factory/` development workspace, not the production Media Workspace.
 
 ## Priorities
 
-1. Use Automation 1 and Automation 2 for real travel content; let real-world usage surface concrete issues before further changes (both are intentionally frozen for now — see Next Steps).
-2. When ready, select and integrate a real AI enhancement provider for Automation 1 behind the existing `BaseEnhancementProvider` abstraction.
-3. If real image/vision analysis is ever added to Automation 2 (e.g. for ALT text or scene-aware captions), it must continue to follow the same authenticity rules: never invent a location, experience, or fact, and always leave room for human verification.
-4. Decide whether/how to retire or merge the older `content-factory/` scaffold now that both automations operate directly against the production Media Workspace.
+1. Configure real Cloudinary credentials and run a small real test batch to visually confirm the Natural Travel Enhancement Profile's output quality before relying on it for a full trip.
+2. If real image/vision analysis is ever added to Automation 2 (e.g. for ALT text or scene-aware captions), it must continue to follow the same authenticity rules: never invent a location, experience, or fact, and always leave room for human verification.
+3. Decide whether/how to retire or merge the older `content-factory/` scaffold now that both automations operate directly against the production Media Workspace.
 
 ## Next Steps
 
-- Automation 1 and Automation 2 are both feature-complete and validated. Recommendation: freeze further changes to both until real-world travel usage reveals concrete issues — avoid speculative additional work.
+- Both automations are feature-complete. Automation 1's enhancement step is now real (Cloudinary), pending the user's own visual validation with real credentials and real photos.
 - Continue using `.project-memory/` as the handover source for every future session.
 - Before implementing new automation, confirm any new feature fits within Automation 1 (stops at Lightroom Ready) or Automation 2 (stops at the posting package, never publishes) as defined in `docs/ARCHITECTURE.md`.
-- When integrating a real enhancement provider for Automation 1, implement it as a new `BaseEnhancementProvider` subclass and register it via `registerProvider`; do not modify `src/automation1/pipeline.js` to special-case a provider.
+- When integrating an additional future enhancement provider, implement it as a new `BaseEnhancementProvider` subclass and register it via `registerProvider`; do not modify `src/automation1/pipeline.js` to special-case a provider.

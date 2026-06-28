@@ -66,3 +66,16 @@
 - Verified against the real production Media Workspace (`~/Miles and Meals PH`) using synthetic test data only; confirmed no existing folder or file was touched; cleaned up afterward.
 - Added `docs/FEATURES/automation-2.md`; updated `docs/ARCHITECTURE.md`, `README.md`, and `docs/OPERATOR_GUIDE.md` (expanded to cover both automations).
 - Automation 1 was not modified and remains frozen.
+
+## 2026-06-28 (continued) - Replace the Pass-through provider with a real AI enhancement provider
+
+- Added `src/automation1/providers/enhancement-profile.js` defining the official Miles & Meals Natural Travel Enhancement Profile (a Cloudinary transformation chain using only deterministic, non-generative correction effects: automatic AI-driven exposure/white-balance/dynamic-range correction plus capped contrast/color/vibrance/sharpening).
+- Added `src/automation1/providers/cloudinary-provider.js` (`CloudinaryEnhancementProvider`, registered as `"cloudinary"`): signs and uploads the candidate photo to Cloudinary, applies the enhancement profile, downloads the result, writes it atomically into `Enhanced/`, and deletes the temporary cloud copy by default afterward.
+- Made `"cloudinary"` the default Automation 1 enhancement provider (`AUTOMATION1_ENHANCEMENT_PROVIDER`, previously `"passthrough"`). `PassthroughEnhancementProvider` remains registered as `"passthrough"`, an explicit offline/no-credentials fallback.
+- `pipeline.js`'s `processFile` now passes `mediaId` into `provider.enhance(...)`; this is the only change to the pipeline itself.
+- Added Cloudinary configuration to `.env.example`: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_UPLOAD_FOLDER`, `CLOUDINARY_ENHANCEMENT_TRANSFORMATION`, `CLOUDINARY_DELETE_AFTER_DOWNLOAD`. No credentials are hardcoded anywhere in source.
+- Updated `test/automation1.test.js`: pinned 3 pre-existing tests to `provider: "passthrough"` (pipeline behavior is provider-agnostic), updated the default-provider assertion to `"cloudinary"`, and added 4 new tests covering missing-credentials error handling, a full mocked upload/transform/download round trip, and non-fatal cleanup-failure handling. Cloudinary's HTTP API is mocked via `globalThis.fetch`; no real network access or credentials are required to run the suite.
+- `npm test`: 27/27 passing (15 in `automation1.test.js`, 9 in `automation2.test.js`, 3 in `content-factory.test.js`).
+- Verified against the real production Media Workspace (`~/Miles and Meals PH`, which now holds real creator photos from genuine prior use): confirmed the 6 existing enhanced photos were correctly skipped and untouched, and a synthetic test file failed cleanly with the expected missing-credentials error; cleaned up the synthetic entry surgically afterward.
+- Updated `docs/FEATURES/automation-1.md`, `docs/ARCHITECTURE.md`, `README.md`, and `docs/OPERATOR_GUIDE.md` to document the new provider, the enhancement profile, and Cloudinary setup/cost.
+- Automation 2 was not modified.

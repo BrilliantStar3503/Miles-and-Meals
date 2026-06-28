@@ -30,7 +30,7 @@ export function createConfig(options = {}) {
   const root = path.resolve(
     expandHome(options.root ?? process.env.AUTOMATION1_MEDIA_ROOT ?? "~/Miles and Meals PH")
   );
-  const provider = options.provider ?? process.env.AUTOMATION1_ENHANCEMENT_PROVIDER ?? "passthrough";
+  const provider = options.provider ?? process.env.AUTOMATION1_ENHANCEMENT_PROVIDER ?? "cloudinary";
   const concurrency = Number(options.concurrency ?? process.env.AUTOMATION1_QUEUE_CONCURRENCY ?? 2) || 1;
   const stabilityCheckMs = Number(
     options.stabilityCheckMs ?? process.env.AUTOMATION1_STABILITY_CHECK_MS ?? 300

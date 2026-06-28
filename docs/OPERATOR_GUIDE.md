@@ -88,7 +88,7 @@ Successfully processed photos appear, unmodified, in:
 ~/Miles and Meals PH/Enhanced/
 ```
 
-(Currently the enhancement step is a temporary Pass-through provider — it copies the file as-is. No real AI enhancement has been integrated yet.)
+By default, the enhancement step applies the official Miles & Meals Natural Travel Enhancement Profile via Cloudinary — a natural, Lightroom-style auto-correction (exposure, white balance, dynamic range, mild clarity and vibrance), not generative AI editing. It never invents scenery, changes the weather, or adds/removes anything from the photo. This requires Cloudinary credentials to be configured (see `docs/FEATURES/automation-1.md`). If credentials aren't set up yet, set `AUTOMATION1_ENHANCEMENT_PROVIDER=passthrough` to copy files unmodified instead.
 
 From there, edit manually in Lightroom and save the finished result into `Lightroom Ready/`. Automation 1 stops at that point.
 
@@ -170,6 +170,7 @@ Same as Automation 1: `Ctrl+C` in the terminal, or `pkill -f "automation2:watch"
 - **A photo shows as `invalid`**: check `errors` in the status/log output. Usually an unsupported file type, a zero-byte file, or a file that was still copying/syncing when checked — wait a moment and re-copy it.
 - **Nothing happens after copying a photo**: confirm the relevant `watch` command is actually running, or run the one-shot `run` command manually once.
 - **Need to re-process a photo with Automation 1**: it skips files that already exist in `Enhanced/`. Delete the file from `Enhanced/` first if you need to redo it.
+- **Every photo shows as `failed` with a "Missing required environment variable" message**: Cloudinary credentials aren't configured. Follow the Cloudinary Setup steps in `docs/FEATURES/automation-1.md`, or set `AUTOMATION1_ENHANCEMENT_PROVIDER=passthrough` to use the offline fallback in the meantime. The original photo in `Instagram Candidates/` is never affected by an enhancement failure.
 - **Need to regenerate a posting package**: Automation 2 never overwrites an existing posting package. Delete the `.md` file from `Posting Package/` first if you want a fresh one.
 - **The watcher printed a "watcher lost connection" message**: this happens if the folder briefly became unavailable (e.g. an external drive blip). It retries automatically a few times. If you see a `FATAL` message saying the watcher stopped permanently, just restart it with `npm run automation1:watch` or `npm run automation2:watch`.
 - **You stopped a watcher with Ctrl+C while it was processing a file**: it waits for that file to finish before exiting, so you shouldn't see a half-written file in `Enhanced/` or `Posting Package/`.

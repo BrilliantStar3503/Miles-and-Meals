@@ -80,7 +80,7 @@ Automation 1 reads from and writes to the Media Workspace directly (`~/Miles and
 - Generated deliverables: `outputs/`.
 - Scratch or intermediate work: `work/`.
 
-No frontend framework, hosted database, queue, cloud deployment target, or paid AI enhancement provider has been selected yet.
+No frontend framework, hosted database, queue, or cloud deployment target has been selected yet. Automation 1's AI enhancement provider is Cloudinary (see below).
 
 ## Automation 1 Implementation
 
@@ -91,7 +91,9 @@ Automation 1 is implemented in `src/automation1/` as a modular pipeline:
 - `validator.js` - rejects unsupported extensions, empty files, and files still being written (size-stability check).
 - `queue.js` - a bounded-concurrency processing queue.
 - `providers/base-provider.js` - abstract `BaseEnhancementProvider` that all enhancement providers implement.
-- `providers/passthrough-provider.js` - the default `PassthroughEnhancementProvider`; copies the candidate file into `Enhanced/` unmodified.
+- `providers/cloudinary-provider.js` - the default `CloudinaryEnhancementProvider`; applies the Miles & Meals Natural Travel Enhancement Profile via Cloudinary's automatic image-correction engine and writes the result into `Enhanced/`.
+- `providers/passthrough-provider.js` - `PassthroughEnhancementProvider`; an offline/fallback provider that copies the candidate file into `Enhanced/` unmodified.
+- `providers/enhancement-profile.js` - the official Miles & Meals Natural Travel Enhancement Profile definition (the Cloudinary transformation chain and the rationale for why it cannot hallucinate or invent scene content).
 - `providers/index.js` - a provider registry (`createProvider`, `registerProvider`) so a future provider (OpenAI, Topaz, Adobe Firefly, etc.) can be added by registering a new `BaseEnhancementProvider` subclass, without changing `pipeline.js` or any other workflow code.
 - `logger.js` - structured JSON-line logging to `.automation1/logs/events.ndjson` inside the Media Workspace, mirrored to the console.
 - `state-store.js` - per-media JSON state persisted to `.automation1/state.json` inside the Media Workspace.
@@ -156,7 +158,9 @@ src/
     pipeline.js
     providers/
       base-provider.js
+      cloudinary-provider.js
       passthrough-provider.js
+      enhancement-profile.js
       index.js
   automation2/
     config.js
@@ -214,7 +218,7 @@ work/
 - Generated user-facing artifacts live in `outputs/`.
 - Temporary or exploratory files belong in `work/`.
 - The first executable implementation is a local Node.js CLI with no third-party dependencies.
-- The enhancement adapter is currently `local-passthrough`, which copies originals without modifying pixels. A future "natural AI enhancement" adapter must preserve the same authenticity boundary: it may correct exposure, color, and composition cues, but it must not invent scenery, fabricate edits, or alter the substance of a photo.
+- The default Automation 1 enhancement provider is Cloudinary, applying the Miles & Meals Natural Travel Enhancement Profile (see `docs/FEATURES/automation-1.md`). It uses only deterministic, per-pixel correction effects — no generative/diffusion effects — so it cannot invent scenery, fabricate edits, or alter the substance of a photo. `local-passthrough` (now `PassthroughEnhancementProvider`, registered as `"passthrough"`) remains available as an offline/no-credentials fallback. Any future enhancement adapter must preserve the same authenticity boundary: it may correct exposure, color, and composition cues, but it must not invent scenery, fabricate edits, or alter the substance of a photo.
 - Runtime media, generated drafts, and local state are ignored by git by default.
 - `content-factory/` in this repository is a local development workspace, not the production Media Workspace. The production Media Workspace is `Miles and Meals PH`, outside this repository.
 - Automation 2 generates draft posting packages only; it has no code path that publishes or connects to Instagram. Captions never assume a location (a placeholder is used instead) and never invent experiences or facts; ALT text is explicitly labeled as a filename-based draft, not a description of actual image contents, since Automation 2 does not perform image analysis.
