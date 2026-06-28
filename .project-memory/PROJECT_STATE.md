@@ -2,7 +2,7 @@
 
 ## Status
 
-Automation 1's Pass-through provider has been replaced as the default enhancement provider by a real AI enhancement provider: `CloudinaryEnhancementProvider`, implementing the official **Miles & Meals Natural Travel Enhancement Profile** (now refined to v1.1 for visual consistency and a more premium Lightroom-style finish). `PassthroughEnhancementProvider` remains registered as an offline/no-credentials fallback. The provider abstraction (`BaseEnhancementProvider`, `createProvider`/`registerProvider`) and the rest of the Automation 1 pipeline were not changed. Automation 2 is unaffected and remains as previously implemented (template-based, no image analysis).
+Automation 1's Cloudinary enhancement provider has now been verified against a real Cloudinary account and real travel photos, as the final step before the user declared Automation 1 frozen. This surfaced and fixed three real bugs (signature, silent-failure masking, and a broken cleanup-deletion) and one real-world dependency issue (`e_viesus_correct` required a paid add-on that wasn't active), resolved by retuning the profile to v1.2 using `e_improve` instead. Visual review of 6 real photos confirms the profile meets the documented checklist (natural clarity, balanced dynamic range, vibrant-but-realistic color, conditional sky/greenery enhancement, realistic skin tones, no HDR, no hallucination, no oversaturation). `PassthroughEnhancementProvider` remains registered as an offline/no-credentials fallback. The provider abstraction, pipeline, workflow, and folder structure were not changed — only `enhancement-profile.js` and bug fixes inside `cloudinary-provider.js` itself. Automation 2 is unaffected.
 
 ## Completed
 
@@ -34,6 +34,30 @@ Automation 1's Pass-through provider has been replaced as the default enhancemen
 - Added a test asserting the transformation chain contains only known non-generative effect prefixes (`e_viesus_correct`, `e_auto_contrast`, `e_auto_color`, `e_vibrance`, `e_unsharp_mask`/`e_sharpen`) and explicitly rejects generative-effect prefixes, so a future edit to the profile that accidentally introduces a generative effect will fail CI.
 - `npm test`: 28/28 passing.
 
+### Real-World Cloudinary Verification (this session)
+
+The user provided real Cloudinary credentials (cloud name `dlehclxin`) and asked for real-processing verification of the enhancement profile against representative travel photos, as the final step before freezing Automation 1. Credentials were written to a git-ignored local `.env` (never committed). Verification used the 6 real photos already present in the production `Instagram Candidates/` folder, but **copied into an isolated scratch directory** (not the production `Enhanced/`/state) so the genuine prior Automation 1 history in `~/Miles and Meals PH` was never touched or overwritten.
+
+Running against the real account surfaced and fixed three real bugs in `src/automation1/providers/cloudinary-provider.js` (not caught by the existing mocked tests, because the mocks didn't reproduce Cloudinary's exact contract):
+
+1. **Invalid upload signature.** The `eager` transformation parameter was sent in the upload request but omitted from the signed-parameter set, so Cloudinary rejected every real upload with `401 Invalid Signature`. Fixed by including `eager` in the signature.
+2. **Silent fallback to the unmodified original, reported as success.** If the `eager` transformation failed, the old code fell back to `result.secure_url` (the plain unmodified upload) and returned it as a successful enhancement — every "enhanced" photo was byte-for-byte identical to its original with no error logged. This is exactly what happened with `e_viesus_correct` (see below). Fixed by explicitly checking the eager result and throwing if it's missing or `status: "failed"`.
+3. **Cleanup deletion silently not deleting anything.** Cloudinary stores an asset at `folder/public_id` when both are given on upload, but the destroy call used the bare `public_id`, so Cloudinary returned `200 {"result":"not found"}` (a non-error status) and 22 real test/debug assets were left on the account undetected. Fixed by destroying the full `folder/public_id` path and checking the JSON `result` field, not just the HTTP status. All 22 stray assets were manually cleaned up via the Cloudinary admin API; a follow-up real run confirmed zero leftover assets afterward.
+
+Separately, real testing revealed that `e_viesus_correct` (used in v1.0/v1.1) requires a paid Cloudinary add-on subscription that isn't active on this account — every real attempt to apply it failed server-side with "You don't have an active subscription for VIESUS(tm) Image Enhancement" (this is what bug #2 above was silently masking). Resolved by retuning the profile to **v1.2**: replaced `e_viesus_correct` with `e_improve` (a built-in Cloudinary effect, no add-on required). Verified that plain `e_improve` (no mode qualifier) produces identical output to `e_improve:indoor`/`e_improve:outdoor` on the same test photo, confirming a mode qualifier wasn't needed and the codebase can stay free of scene-classification logic.
+
+After both fixes, ran the real batch of 6 photos (a cathedral interior, two river/bridge/sky/greenery landscape shots, a sunlit street scene with pedestrians, a portrait of two people, and a second cathedral interior) through `automation1:run` with the real Cloudinary provider. All 6 produced genuinely different (non-identical) output, confirmed via checksum, and were visually reviewed side-by-side against their originals:
+
+- Sky and hillside greenery came out richer but realistic, only where already blue/green (confirmed on the river/bridge photos) — water color was left untouched, not recolored.
+- Cathedral stonework, stained glass, and floor tile read crisper with no visible halos.
+- The dim cathedral interior kept its darkness — no fake brightening.
+- The portrait's skin tones remained natural, with no plastic/beauty-filter look, while the cityscape behind the subjects still got a real, visible improvement (confirms "people are always more important than scenery" wasn't violated — neither was sacrificed).
+- No HDR appearance, no oversaturation, and no added/removed/altered content in any of the 6 photos.
+
+Added 2 new regression tests in `test/automation1.test.js` reproducing the silent-fallback and wrong-destroy-public-id bug conditions via a mocked `fetch` (the signature bug is implicitly covered by every existing successful-path Cloudinary test, since they'd fail if the signature were wrong), plus updated the existing profile-content guardrail test to check for `e_improve` instead of the now-removed `e_viesus_correct`. `npm test`: 30/30 passing.
+
+Cleaned up: the production workspace was never modified (verified via checksum before/after); the scratch verification directory and all real Cloudinary cloud assets created during this session were deleted; the local `.env` with real credentials remains in place (git-ignored) so the user's Automation 1 setup is ready to use going forward.
+
 ### Automation 2 (no changes this session)
 
 - See prior session history below and `docs/FEATURES/automation-2.md`. Still template-based with no image analysis; unaffected by this change.
@@ -44,9 +68,8 @@ Automation 1's Pass-through provider has been replaced as the default enhancemen
 
 ## Known Issues / Remaining Limitations
 
-- The Cloudinary provider has not been exercised against a real Cloudinary account with real credentials in this session (no credentials were available in this environment) — it has been verified via mocked HTTP calls and against the missing-credentials error path on real production data. The user should run a small real test batch (a few photos) after configuring credentials, before trusting it for a full trip's worth of photos.
-- The enhancement profile is a single, scene-adaptive transformation (relying on Cloudinary's Viesus engine to adapt per-image automatically); there is no scene-detection step in Automation 1, so the spec's per-scene guidance (outdoor sunny, indoor, snow, night, etc.) is satisfied adaptively rather than via separate hardcoded branches per scene. Adding true scene detection was out of scope (would expand the workflow) and is not implemented.
-- A photo is briefly uploaded to Cloudinary's servers during enhancement (and deleted immediately afterward by default). This is an inherent tradeoff of using any cloud-based enhancement API; documented in `docs/FEATURES/automation-1.md` under Cloudinary Setup.
+- The enhancement profile is a single, scene-adaptive transformation (relying on Cloudinary's `e_improve` engine to adapt per-image automatically); there is no scene-detection step in Automation 1, so the spec's per-scene guidance (outdoor sunny, indoor, snow, night, etc.) is satisfied adaptively rather than via separate hardcoded branches per scene. Real testing showed `e_improve`'s mode qualifier (`:indoor`/`:outdoor`) makes no detectable difference vs. plain `e_improve` on the same photo, supporting this approach. Snow and night scenes specifically were not represented in the 6 real verification photos (no snow/night photos existed in the production workspace at the time) — the documented behavior for those scenes is based on the effects' general properties, not a direct visual confirmation.
+- A photo is briefly uploaded to Cloudinary's servers during enhancement (and deleted immediately afterward by default — confirmed working correctly after the destroy-bug fix). This is an inherent tradeoff of using any cloud-based enhancement API; documented in `docs/FEATURES/automation-1.md` under Cloudinary Setup.
 - Cloudinary cost estimates in the documentation are approximate and may be out of date; current pricing should be checked at cloudinary.com/pricing before high-volume use.
 - Automation 2: captions, hashtags, and ALT text are template-based and filename-derived only — there is no real image/vision analysis. This is intentional (the requirements explicitly forbid inferring or inventing anything not actually known), not a defect.
 - Neither automation has log rotation; fine for normal trip-length usage, would need revisiting under sustained continuous operation.
@@ -55,13 +78,14 @@ Automation 1's Pass-through provider has been replaced as the default enhancemen
 
 ## Priorities
 
-1. Configure real Cloudinary credentials and run a small real test batch to visually confirm the Natural Travel Enhancement Profile's output quality before relying on it for a full trip.
-2. If real image/vision analysis is ever added to Automation 2 (e.g. for ALT text or scene-aware captions), it must continue to follow the same authenticity rules: never invent a location, experience, or fact, and always leave room for human verification.
-3. Decide whether/how to retire or merge the older `content-factory/` scaffold now that both automations operate directly against the production Media Workspace.
+Automation 1 is frozen following successful real-world validation (per explicit user instruction). No further changes are planned unless real-world trip usage surfaces a concrete issue.
+
+1. If real image/vision analysis is ever added to Automation 2 (e.g. for ALT text or scene-aware captions), it must continue to follow the same authenticity rules: never invent a location, experience, or fact, and always leave room for human verification.
+2. Decide whether/how to retire or merge the older `content-factory/` scaffold now that both automations operate directly against the production Media Workspace.
 
 ## Next Steps
 
-- Both automations are feature-complete. Automation 1's enhancement step is now real (Cloudinary), pending the user's own visual validation with real credentials and real photos.
+- **Automation 1 is frozen.** It has been validated end-to-end with a real Cloudinary account and real travel photos, meets the documented visual checklist, and per explicit user instruction should not receive further code changes unless real-world usage reveals a genuine need — and even then, changes should be limited to `enhancement-profile.js` parameters, not the pipeline/abstraction/workflow/folder structure.
 - Continue using `.project-memory/` as the handover source for every future session.
 - Before implementing new automation, confirm any new feature fits within Automation 1 (stops at Lightroom Ready) or Automation 2 (stops at the posting package, never publishes) as defined in `docs/ARCHITECTURE.md`.
 - When integrating an additional future enhancement provider, implement it as a new `BaseEnhancementProvider` subclass and register it via `registerProvider`; do not modify `src/automation1/pipeline.js` to special-case a provider.

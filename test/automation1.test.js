@@ -163,7 +163,7 @@ test("createProvider returns the Cloudinary provider as the official Natural Tra
 test("the Natural Travel Enhancement Profile uses only non-generative, deterministic Cloudinary effects", () => {
   const components = NATURAL_ENHANCEMENT_TRANSFORMATION.split("/");
 
-  assert.ok(components.includes("e_viesus_correct"));
+  assert.ok(components.includes("e_improve"));
   assert.ok(components.some((component) => component.startsWith("e_auto_contrast:")));
   assert.ok(components.some((component) => component.startsWith("e_auto_color:")));
   assert.ok(components.some((component) => component.startsWith("e_vibrance:")));
@@ -241,6 +241,45 @@ test("the Cloudinary provider uploads, downloads, and atomically writes the enha
   }
 });
 
+test("the Cloudinary provider fails (rather than silently returning the unmodified original) when the eager transformation itself fails", async () => {
+  const root = await createTempWorkspace();
+  await initializeAutomation1({ root });
+  await fs.writeFile(path.join(root, "Instagram Candidates", "no-addon.jpg"), "original-bytes");
+
+  process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
+  process.env.CLOUDINARY_API_KEY = "test-key";
+  process.env.CLOUDINARY_API_SECRET = "test-secret";
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const urlString = String(url);
+    if (urlString.includes("/image/upload")) {
+      return new Response(
+        JSON.stringify({
+          secure_url: "https://res.cloudinary.com/mock/original-unmodified.jpg",
+          eager: [{ status: "failed", reason: "You don't have an active subscription for this effect" }]
+        }),
+        { status: 200 }
+      );
+    }
+    throw new Error(`Unexpected fetch call in test: ${urlString}`);
+  };
+
+  try {
+    const result = await runAutomation1({ root, provider: "cloudinary", stabilityCheckMs: 0 });
+    assert.equal(result.failed, 1);
+    assert.equal(result.processed, 0);
+
+    const enhancedEntries = await fs.readdir(path.join(root, "Enhanced"));
+    assert.deepEqual(enhancedEntries, []);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.CLOUDINARY_CLOUD_NAME;
+    delete process.env.CLOUDINARY_API_KEY;
+    delete process.env.CLOUDINARY_API_SECRET;
+  }
+});
+
 test("the Cloudinary provider still succeeds even if deleting the temporary cloud copy fails", async () => {
   const root = await createTempWorkspace();
   await initializeAutomation1({ root });
@@ -265,6 +304,37 @@ test("the Cloudinary provider still succeeds even if deleting the temporary clou
   }
 });
 
+test("the Cloudinary provider deletes the cloud copy using its full folder-prefixed public_id", async () => {
+  const root = await createTempWorkspace();
+  await initializeAutomation1({ root });
+  await fs.writeFile(path.join(root, "Instagram Candidates", "lisbon-tram.jpg"), "original-bytes");
+
+  process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
+  process.env.CLOUDINARY_API_KEY = "test-key";
+  process.env.CLOUDINARY_API_SECRET = "test-secret";
+  process.env.CLOUDINARY_UPLOAD_FOLDER = "miles-and-meals/automation1";
+
+  let destroyedPublicId = null;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = createCloudinaryFetchMock({
+    onDestroy: (publicId) => {
+      destroyedPublicId = publicId;
+    }
+  });
+
+  try {
+    const result = await runAutomation1({ root, provider: "cloudinary", stabilityCheckMs: 0 });
+    assert.equal(result.processed, 1);
+    assert.match(destroyedPublicId, /^miles-and-meals\/automation1\//);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.CLOUDINARY_CLOUD_NAME;
+    delete process.env.CLOUDINARY_API_KEY;
+    delete process.env.CLOUDINARY_API_SECRET;
+    delete process.env.CLOUDINARY_UPLOAD_FOLDER;
+  }
+});
+
 test("watchCandidates retries after a watcher error instead of crashing the process", async () => {
   const root = await createTempWorkspace();
   const config = await initializeAutomation1({ root }).then(() => createConfig({ root }));
@@ -284,9 +354,10 @@ test("watchCandidates retries after a watcher error instead of crashing the proc
 function createCloudinaryFetchMock({
   enhancedUrl = "https://res.cloudinary.com/mock/enhanced.jpg",
   enhancedBytes = "enhanced-bytes",
-  failDestroy = false
+  failDestroy = false,
+  onDestroy
 } = {}) {
-  return async (url) => {
+  return async (url, options) => {
     const urlString = String(url);
 
     if (urlString.includes("/image/upload")) {
@@ -298,6 +369,10 @@ function createCloudinaryFetchMock({
     }
 
     if (urlString.includes("/image/destroy")) {
+      if (onDestroy && options?.body instanceof FormData) {
+        onDestroy(options.body.get("public_id"));
+      }
+
       return failDestroy
         ? new Response("destroy failed", { status: 500 })
         : new Response(JSON.stringify({ result: "ok" }), { status: 200 });

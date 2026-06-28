@@ -58,9 +58,10 @@ export class CloudinaryEnhancementProvider extends BaseEnhancementProvider {
     await this.#writeAtomically(destinationPath, enhancedBuffer);
 
     if (deleteAfterDownload) {
-      await this.#destroy({ cloudName, apiKey, apiSecret, publicId }).catch((error) => {
+      const fullPublicId = `${folder}/${publicId}`;
+      await this.#destroy({ cloudName, apiKey, apiSecret, publicId: fullPublicId }).catch((error) => {
         console.error(
-          `[automation1] WARN Failed to delete Cloudinary asset "${publicId}" after enhancement: ` +
+          `[automation1] WARN Failed to delete Cloudinary asset "${fullPublicId}" after enhancement: ` +
             `${error instanceof Error ? error.message : String(error)}`
         );
       });
@@ -80,7 +81,7 @@ export class CloudinaryEnhancementProvider extends BaseEnhancementProvider {
 
   async #upload({ sourcePath, cloudName, apiKey, apiSecret, folder, publicId, transformation }) {
     const timestamp = Math.floor(Date.now() / 1000);
-    const signature = signParams({ folder, public_id: publicId, timestamp }, apiSecret);
+    const signature = signParams({ eager: transformation, folder, public_id: publicId, timestamp }, apiSecret);
 
     const fileBuffer = await fs.readFile(sourcePath);
     const form = new FormData();
@@ -103,11 +104,19 @@ export class CloudinaryEnhancementProvider extends BaseEnhancementProvider {
     }
 
     const result = await response.json();
-    const url = result.eager?.[0]?.secure_url ?? result.secure_url;
+    const eagerResult = result.eager?.[0];
 
-    if (!url) {
-      throw new Error("Cloudinary did not return an enhanced image URL.");
+    if (!eagerResult) {
+      throw new Error("Cloudinary did not return an eager transformation result.");
     }
+
+    if (eagerResult.status === "failed" || !eagerResult.secure_url) {
+      throw new Error(
+        `Cloudinary enhancement transformation failed: ${eagerResult.reason ?? "unknown reason"}`
+      );
+    }
+
+    const url = eagerResult.secure_url;
 
     return url;
   }
@@ -153,6 +162,11 @@ export class CloudinaryEnhancementProvider extends BaseEnhancementProvider {
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       throw new Error(`Cloudinary destroy failed (${response.status}): ${body}`);
+    }
+
+    const result = await response.json();
+    if (result.result !== "ok") {
+      throw new Error(`Cloudinary destroy did not confirm deletion (result: "${result.result}").`);
     }
   }
 }

@@ -87,3 +87,14 @@
 - Added a guardrail test asserting the transformation chain contains only recognized non-generative effect prefixes and fails if a generative-effect prefix is ever introduced.
 - Updated `docs/FEATURES/automation-1.md`'s enhancement-profile section to match.
 - No change to the provider abstraction, the pipeline, or the default/registered providers. `npm test`: 28/28 passing.
+
+## 2026-06-28 (continued) - Real-world Cloudinary verification; Automation 1 frozen
+
+- Verified the Cloudinary enhancement provider against a real Cloudinary account (credentials provided by the user) and 6 real travel photos, using an isolated scratch copy so production data was never touched.
+- Found and fixed three bugs in `src/automation1/providers/cloudinary-provider.js`: (1) the upload signature omitted the `eager` parameter, causing every real upload to fail with `401 Invalid Signature`; (2) a failed eager transformation silently fell back to the unmodified original and reported success, masking failures with no error logged; (3) the cleanup-deletion step used the wrong (non-folder-prefixed) public ID, so temporary cloud copies were never actually deleted, leaving 22 stray assets on the live account — manually cleaned up via the Cloudinary admin API.
+- Found that `e_viesus_correct` (used since v1.0) requires a separate paid Cloudinary add-on subscription not active on the real account, which is what bug #2 was silently masking. Retuned the profile to **v1.2**, replacing `e_viesus_correct` with `e_improve` (a built-in Cloudinary effect requiring no add-on); confirmed via direct testing that no mode qualifier (`:indoor`/`:outdoor`) was needed.
+- Ran the real 6-photo batch through the fixed provider and confirmed visually: richer-but-realistic sky/greenery only where already present, crisper architecture/stonework with no halos, preserved darkness in a dim interior, natural unfiltered skin tones in a portrait, and no HDR look, oversaturation, or hallucinated content in any photo.
+- Added regression tests reproducing the silent-fallback bug and the folder-prefixed-destroy fix; updated the profile-content guardrail test for `e_improve`. `npm test`: 30/30 passing.
+- Updated `docs/FEATURES/automation-1.md` with a new "Bugs Found and Fixed During Real Verification" section and v1.2 details.
+- No change to the provider abstraction, pipeline, workflow, or folder structure — changes were limited to `enhancement-profile.js` and bug fixes inside `cloudinary-provider.js` itself, as required to make real verification possible at all.
+- **Automation 1 is now frozen**, per explicit user instruction, following successful real-world validation.
