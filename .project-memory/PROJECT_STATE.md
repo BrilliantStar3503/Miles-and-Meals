@@ -2,7 +2,7 @@
 
 ## Status
 
-Automation 1's Cloudinary enhancement provider has now been verified against a real Cloudinary account and real travel photos, as the final step before the user declared Automation 1 frozen. This surfaced and fixed three real bugs (signature, silent-failure masking, and a broken cleanup-deletion) and one real-world dependency issue (`e_viesus_correct` required a paid add-on that wasn't active), resolved by retuning the profile to v1.2 using `e_improve` instead. Visual review of 6 real photos confirms the profile meets the documented checklist (natural clarity, balanced dynamic range, vibrant-but-realistic color, conditional sky/greenery enhancement, realistic skin tones, no HDR, no hallucination, no oversaturation). `PassthroughEnhancementProvider` remains registered as an offline/no-credentials fallback. The provider abstraction, pipeline, workflow, and folder structure were not changed — only `enhancement-profile.js` and bug fixes inside `cloudinary-provider.js` itself. Automation 2 is unaffected.
+Automation 1's Cloudinary enhancement provider was verified against a real Cloudinary account and real travel photos, surfacing and fixing three real bugs and one real-world dependency issue, then tagged `v1.0.0` as frozen. Shortly after, the user observed Cloudinary apparently not being used in their actual day-to-day workflow; investigation found a **launch-configuration bug**, not a code/profile bug: `npm run automation1:watch`/`:run` never loaded `.env`, and a long-running `watch` process had been started before the Cloudinary default even existed, so it was silently using `passthrough` in memory the whole time. Fixed by adding `--env-file-if-exists=.env` to every `automation1:*`/`automation2:*` npm script, so `.env` now loads automatically with zero extra flags. The provider abstraction, pipeline, workflow, enhancement profile, and folder structure were not touched.
 
 ## Completed
 
@@ -62,12 +62,31 @@ Cleaned up: the production workspace was never modified (verified via checksum b
 
 - See prior session history below and `docs/FEATURES/automation-2.md`. Still template-based with no image analysis; unaffected by this change.
 
+### Launch-Configuration Bug Fix: `.env` Not Auto-Loaded (this session)
+
+After tagging `v1.0.0`, the user observed Cloudinary apparently not running in their real day-to-day workflow (near-instant processing, byte-identical output). Investigation (not a code change at this point) found:
+
+- The currently-running `automation1:watch` process had been started 38 minutes **before** the commit that made `"cloudinary"` the default provider — confirmed by comparing `ps -p <pid> -o lstart` against `git log` commit timestamps. Node doesn't hot-reload; the process kept running the old in-memory default (`"passthrough"`).
+- Inspecting that process's actual environment (`ps eww <pid>`) showed zero `CLOUDINARY_*`/`AUTOMATION1_ENHANCEMENT_PROVIDER` variables — `.env` was never loaded by it.
+- Root cause: `npm run automation1:watch` (and every other `automation1:*`/`automation2:*` script) ran plain `node src/cli.js ...` with no `.env` loading mechanism at all (no `--env-file` flag, no dotenv dependency). `.env` existing on disk was irrelevant to any process started via these scripts.
+- Confirmed via the live Cloudinary account (`resources` listing) that zero real photos had ever actually been uploaded — only Cloudinary's own default sample images existed on the account.
+- Confirmed via checksum: the most recently "enhanced" real photo (`IMG_5940.jpg`) was byte-for-byte identical to its original (same MD5), and its log entry explicitly recorded `"provider":"passthrough"`.
+- Measured the real difference directly: an actual Cloudinary round trip took ~14.0 seconds (11.8s upload+transform, 2.1s download) for one 3MB photo; a local `fs.copyFile` of the same file took 9 milliseconds — a ~1,500x difference, matching the user's "feels like a local copy" observation exactly.
+
+**Fix applied:** added `--env-file-if-exists=.env` (Node's native built-in flag, no new dependency) to all 8 `automation1:*`/`automation2:*` npm scripts in `package.json`. Chose `--env-file-if-exists` over the literal `--env-file` requested, because `--env-file` hard-fails (exit code 9, "not found") if `.env` doesn't exist, which would have broken every script for anyone without Cloudinary set up yet (CI, fresh clone, intentional passthrough-only use) — `--env-file-if-exists` loads `.env` when present and silently continues without it otherwise, satisfying the same objective (".env always loads automatically when present") without introducing a new failure mode.
+- Killed the stale watch process (it was running superseded code anyway).
+- Verified all four required commands (`automation1:watch`, `automation1:run`, `automation2:watch`, `automation2:run`) now report `"provider": "cloudinary"` via `npm run ...` with zero extra flags.
+- Performed one real, timed verification through the actual `npm run automation1:run` command (not a raw `node` script) against an isolated scratch copy of a real photo: confirmed genuine upload → transform → download (different bytes, different checksum, `provider: "cloudinary"`, profile v1.2 recorded in state, ~12.6s elapsed) and confirmed the temporary Cloudinary copy was auto-deleted afterward. Production data was never touched; scratch artifacts and the temporary cloud asset were cleaned up afterward.
+- `npm test`: 30/30 passing (no test changes were needed — this was a launch-configuration fix, not application logic).
+- Updated `docs/FEATURES/automation-1.md`'s Cloudinary Setup section to state that `.env` now loads automatically via the npm scripts, and to warn that an already-running watcher must be restarted to pick up `.env` changes (Node loads environment files once, at process startup).
+
 ## Work In Progress
 
 - No active implementation work is currently in progress.
 
 ## Known Issues / Remaining Limitations
 
+- Resolved this session: `.env` is now loaded automatically by every `automation1:*`/`automation2:*` npm script via `--env-file-if-exists=.env`. **Operators must still restart any already-running `automation1:watch`/`automation2:watch` process after creating or editing `.env`** — environment files are only read at process startup, never hot-reloaded. This is a process/operational caveat, not a code defect, and is now documented in `docs/FEATURES/automation-1.md`.
 - The enhancement profile is a single, scene-adaptive transformation (relying on Cloudinary's `e_improve` engine to adapt per-image automatically); there is no scene-detection step in Automation 1, so the spec's per-scene guidance (outdoor sunny, indoor, snow, night, etc.) is satisfied adaptively rather than via separate hardcoded branches per scene. Real testing showed `e_improve`'s mode qualifier (`:indoor`/`:outdoor`) makes no detectable difference vs. plain `e_improve` on the same photo, supporting this approach. Snow and night scenes specifically were not represented in the 6 real verification photos (no snow/night photos existed in the production workspace at the time) — the documented behavior for those scenes is based on the effects' general properties, not a direct visual confirmation.
 - A photo is briefly uploaded to Cloudinary's servers during enhancement (and deleted immediately afterward by default — confirmed working correctly after the destroy-bug fix). This is an inherent tradeoff of using any cloud-based enhancement API; documented in `docs/FEATURES/automation-1.md` under Cloudinary Setup.
 - Cloudinary cost estimates in the documentation are approximate and may be out of date; current pricing should be checked at cloudinary.com/pricing before high-volume use.

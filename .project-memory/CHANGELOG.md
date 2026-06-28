@@ -98,3 +98,15 @@
 - Updated `docs/FEATURES/automation-1.md` with a new "Bugs Found and Fixed During Real Verification" section and v1.2 details.
 - No change to the provider abstraction, pipeline, workflow, or folder structure — changes were limited to `enhancement-profile.js` and bug fixes inside `cloudinary-provider.js` itself, as required to make real verification possible at all.
 - **Automation 1 is now frozen**, per explicit user instruction, following successful real-world validation.
+- Tagged `v1.0.0` ("Miles & Meals Automation v1.0") and pushed to GitHub: first stable production release.
+
+## 2026-06-29 - Fix `.env` not being loaded by npm scripts (launch-configuration bug)
+
+- Diagnosed, before changing any code, why the user's real-world Automation 1 usage appeared not to use Cloudinary at all: a long-running `automation1:watch` process had started before the Cloudinary-default code change and had zero Cloudinary env vars in its actual process environment; confirmed via the live Cloudinary account that no real photo had ever been uploaded; confirmed via checksum that the most recent "enhanced" real photo was byte-identical to its original; measured a real Cloudinary round trip at ~14.0s vs. 9ms for a local copy.
+- Root cause: none of the `automation1:*`/`automation2:*` npm scripts loaded `.env` — they ran plain `node src/cli.js ...`.
+- Fix: added `node --env-file-if-exists=.env` to all 8 relevant scripts in `package.json`. Chose `--env-file-if-exists` over the requested `--env-file` because the latter hard-fails when `.env` is absent, which would regress every script for users without Cloudinary configured; `--env-file-if-exists` loads it when present and continues silently otherwise. No new dependency (dotenv) was introduced.
+- Killed the stale watch process; verified `automation1:status`, `automation2:status`, and a live `automation1:watch` start/stop all report `provider: "cloudinary"` with zero extra flags.
+- Performed one real, timed verification through the actual `npm run automation1:run` command against an isolated scratch copy of a real photo: confirmed genuine upload/transform/download (different bytes and checksum, ~12.6s elapsed, profile v1.2 recorded) and automatic cleanup of the temporary Cloudinary copy. Production data was untouched.
+- `npm test`: 30/30 passing (no test changes needed; this was a launch-configuration fix, not application logic).
+- Updated `docs/FEATURES/automation-1.md`'s Cloudinary Setup section with the auto-loading behavior and a note that running watchers must be restarted to pick up `.env` changes.
+- No change to the enhancement profile, pipeline, provider abstraction, or folder structure.

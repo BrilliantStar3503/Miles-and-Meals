@@ -133,7 +133,9 @@ All three are now covered by regression tests in `test/automation1.test.js` usin
    CLOUDINARY_API_SECRET=your-api-secret
    ```
 4. `.env` is git-ignored — never commit real credentials. Automation 1 reads these from the process environment at runtime; nothing is hardcoded.
-5. Run `npm run automation1:run` (or `automation1:watch`) as usual.
+5. Run `npm run automation1:run` (or `automation1:watch`) as usual — every `automation1:*`/`automation2:*` npm script runs `node --env-file-if-exists=.env`, so `.env` is loaded automatically. No extra flags or manual environment exporting needed. If `.env` doesn't exist, the flag is a no-op and the process falls through to whatever provider default/fallback applies (see "Offline / no-credentials fallback" below).
+
+**Important — restart any running watcher after changing `.env`:** Node loads `.env` once, at process startup. If `automation1:watch` (or `automation2:watch`) is already running when you create or edit `.env`, that running process will keep using its old configuration until it's stopped and restarted (`Ctrl+C`, then `npm run automation1:watch` again).
 
 **How a photo is processed:** the candidate image is uploaded to your Cloudinary account, the Miles & Meals Natural Travel Enhancement Profile transformation is applied, the result is downloaded into `Enhanced/`, and (by default) the uploaded copy is deleted from Cloudinary immediately afterward (`CLOUDINARY_DELETE_AFTER_DOWNLOAD=true`). This means a photo is briefly hosted on Cloudinary's servers during processing — be aware of this if processing sensitive images.
 

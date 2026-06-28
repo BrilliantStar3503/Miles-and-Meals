@@ -126,6 +126,12 @@ Decision: In addition to the profile retune, fix three bugs discovered inside `c
 
 Reasoning: The task instructions said adjustments after real-world review should be limited to transformation parameters in `enhancement-profile.js`, in the context of *visual/tuning* adjustments. These three issues are different in kind: they are correctness bugs that made the provider not function at all (signature failure), silently lie about success (masked failures), and leak data indefinitely on a third-party service (failed cleanup). Leaving them unfixed would have meant Automation 1 could not be frozen as "verified" in any honest sense -- the verification task itself would have been impossible to complete, and creator photos would have been silently left on Cloudinary indefinitely. Fixing them stayed entirely within `cloudinary-provider.js`; no change was made to the pipeline, the provider abstraction, the workflow, or the folder structure.
 
+## 2026-06-29 - Auto-Load `.env` via `--env-file-if-exists`, Not the Literally-Requested `--env-file`
+
+Decision: Add `node --env-file-if-exists=.env` to every `automation1:*`/`automation2:*` npm script, instead of the literally-requested `node --env-file=.env`.
+
+Reasoning: Real-world testing showed `npm run automation1:watch`/`:run` never loaded `.env` at all, which is why a real Cloudinary setup silently went unused in the user's actual workflow (a long-running watcher kept using the old in-memory `passthrough` default, with zero Cloudinary env vars present). The fix needed to guarantee `.env` loads automatically whenever it exists. `--env-file` was rejected because Node makes it a hard error (exit code 9, "not found") when the file is absent -- that would break every script for anyone without Cloudinary configured yet (a fresh clone, CI, or someone intentionally using the `passthrough` fallback with no `.env` at all), which is a regression the original objective didn't ask for. `--env-file-if-exists` (also a native Node flag, no new dependency) loads the file when present and continues silently when it isn't, meeting the stated goal ("every local npm command automatically loads `.env`") without that regression.
+
 ## 2026-06-28 - Separate the Development Repository From the Media Workspace
 
 Decision: This repository (`Miles-and-Meals`) holds code, documentation, automation, and project memory. The production Media Workspace (`Miles and Meals PH`) holds actual photos, videos, Lightroom assets, CapCut projects, and published media, and lives outside this repository.
