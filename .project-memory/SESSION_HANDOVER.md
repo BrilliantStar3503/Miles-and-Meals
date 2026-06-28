@@ -2,37 +2,38 @@
 
 ## Latest Session Summary
 
-Performed a final production hardening pass on Automation 1 (no workflow changes, no new functionality, no AI provider integration). Fixed the previously known watcher crash risk plus several additional reliability gaps found during a full codebase review. Automation 1 is now considered Production Ready.
+Implemented Automation 2: it watches `Instagram Ready/` and generates a draft posting package (caption, hashtags, ALT text, checklist, processing log) per image into a new `Posting Package/` folder. It never publishes, never connects to Instagram, and never modifies the image. Automation 1 was not modified (it remains frozen).
 
 ## Completed
 
-- `src/automation1/watcher.js`: rewrote to attach an `error` handler to `fs.watch`. On error: log it, close the broken watcher, retry up to 5 times with a 1s delay, and if retries are exhausted, stop and print a clear `FATAL` console message explaining what happened and how to restart (`npm run automation1:watch`). The process is never crashed by a watcher error. Runs triggered by the debounced watcher are also wrapped in a `.catch()` as defense in depth.
-- `src/automation1/pipeline.js` (`watchAutomation1`): the `run` function used as the watcher's callback now catches its own errors and logs them via the logger instead of letting them become an unhandled promise rejection (this was a real crash risk independent of the `fs.watch` error case — a provider failure during a watched run would previously have crashed the whole process). `watchAutomation1` now also tracks the in-flight run and exposes `close()` as `async`, so callers can wait for a run to finish before fully stopping.
-- `src/automation1/state-store.js`: `writeState` now writes to a temp file and renames it into place (atomic write). `readState` now catches a JSON parse failure, backs up the corrupted file to `state.json.corrupt-<timestamp>`, and continues with empty state instead of crashing the next run.
-- `src/automation1/providers/passthrough-provider.js`: `enhance()` now copies to a temp file and renames it into place, with cleanup of the temp file if the copy fails. This prevents a crash mid-copy from leaving a partial file under the final filename — important because `destinationExists()` (duplicate-processing prevention) checks exactly that filename.
-- `src/automation1/validator.js`: the write-stability check is now wrapped in a try/catch. If a candidate file disappears or becomes unreadable while waiting to confirm it's done writing, it's now reported as `invalid` (logged, counted) instead of throwing an uncaught error that silently dropped the file from all counts.
-- `src/cli.js`: `automation1:watch` now handles `SIGINT` and `SIGTERM` exactly once each (no double-shutdown race), awaits the watcher's `close()` (which itself awaits any in-flight run) before exiting, and prints "Stopping watcher..." / "Watcher stopped." for operator clarity. Added a process-level `unhandledRejection` log handler scoped to the `automation1:watch` command only, as a last-resort safety net.
-- `test/automation1.test.js`: added 5 tests (14/14 total passing) — atomic state write leaves no temp file, corrupted state file recovery, pass-through provider cleans up its temp file on a failed copy, `watchAutomation1` survives a failing run without crashing, and `watchCandidates` keeps running after triggering on a real file event.
-- Re-ran `npm test`: 14/14 pass.
-- Re-verified against the real production workspace (`~/Miles and Meals PH`): `automation1:run` still behaves correctly post-hardening and the workspace remains empty/clean (no real media was touched). Verified `SIGINT` shutdown manually against a scratch directory: process exits cleanly with code 0 and prints the expected stop messages.
-- Updated `docs/FEATURES/automation-1.md` (new "Production Hardening" section) and `docs/OPERATOR_GUIDE.md` (troubleshooting notes for watcher recovery and clean Ctrl+C behavior).
+- Added `src/automation2/` (`config.js`, `file-manager.js`, `validator.js`, `queue.js`, `logger.js`, `state-store.js`, `watcher.js`, `pipeline.js`, `posting-package.js`), mirroring Automation 1's module shape and built hardened from the start: watcher error handling with bounded retry (5 retries, 1s apart) and a clear fatal/restart message; runs triggered by the watcher catch their own errors instead of becoming unhandled rejections; atomic state writes (`state.json`) with corrupted-state recovery; atomic posting-package writes (temp file + rename, cleanup on failure); `SIGINT`/`SIGTERM` handled once each in the CLI, awaiting any in-flight run before exit.
+- `src/automation2/posting-package.js` generates: a caption draft with a `Location: __________` placeholder (never assumes a location, never invents an experience or historical fact), a small reusable set of 5 generic travel/brand hashtags (not spammy, not inferred from image content), ALT text explicitly labeled as filename-derived only (Automation 2 does not analyze pixels) with an instruction to replace it with a precise description before publishing, a fixed posting checklist (caption reviewed, location verified, hashtags reviewed, ALT text reviewed, image quality checked, ready to publish), and a processing log entry. Every package ends with a disclaimer that it's a draft and that nothing was published or connected to Instagram.
+- `src/automation2/file-manager.js`'s `listReadyFiles` lists all non-hidden files in `Instagram Ready/` (not pre-filtered by extension), matching Automation 1's pattern so unsupported files still reach the validator and are correctly counted as `invalid` rather than silently skipped.
+- Never overwrites an existing posting package: `postingPackageExists()` is checked before generating; if a `.md` file already exists for an image, the run counts it as `skipped` and leaves the existing file untouched (verified with a test that hand-writes a package and confirms it survives a run).
+- `ensureDirectories()` only creates `Instagram Ready/` (if missing — it should already exist from Automation 1's workflow) and the new `Posting Package/` folder. No other folder in the Media Workspace is touched.
+- Added CLI commands `automation2:init`, `automation2:run`, `automation2:status`, `automation2:watch` to `src/cli.js`, with the same `unhandledRejection` safety net and graceful-shutdown pattern used for `automation1:watch`. Added matching `npm run` scripts.
+- Added `.env.example` entries: `AUTOMATION2_MEDIA_ROOT`, `AUTOMATION2_QUEUE_CONCURRENCY`, `AUTOMATION2_STABILITY_CHECK_MS`.
+- Added `test/automation2.test.js` (9 tests): folder creation; full posting-package content verification (filename/path, location placeholder, hashtags, ALT text section, checklist items, processing log, no-publish disclaimer, and confirms the original image bytes are untouched); never-overwrite behavior; invalid-file rejection; idempotent re-runs; atomic state write + corrupted-state recovery; posting-package write failure leaves no temp file (simulated via a read-only `Posting Package/` directory); `watchAutomation2` surviving a failing run without crashing; and the watcher triggering a run after a real file-system event.
+- `npm test`: 23/23 passing (11 in `automation1.test.js`, 9 in `automation2.test.js`, 3 in `content-factory.test.js`).
+- Manually verified against the real production Media Workspace (`~/Miles and Meals PH`): ran `automation2:init` (created only `Posting Package/` and `.automation2/`, left `Trips/`, `Instagram Candidates/`, `Enhanced/`, `Lightroom Ready/`, `Instagram Ready/`, and `.automation1/` untouched), then ran `automation2:run` against a synthetic, self-created test file only, confirmed the generated Markdown matched every content requirement, then deleted the synthetic file/package and reset `.automation2/state.json` and its event log so the workspace is clean and empty again.
+- Added `docs/FEATURES/automation-2.md`; updated `docs/ARCHITECTURE.md` (Automation 2 Implementation section, storage section, project structure tree, design decisions), `README.md` (new Automation 2 section), and renamed/expanded `docs/OPERATOR_GUIDE.md` to cover both automations.
 
 ## Important Context
 
-- No workflow, folder structure, or functionality changed in this session — this was a reliability-only pass, as instructed.
-- No AI enhancement provider was integrated; the Pass-through provider remains the only registered provider.
-- Automation 2 was not started.
-- The fixes address: watcher crash risk (the previously known issue), an unhandled-rejection crash risk from triggered runs (newly found), state file corruption risk on crash (newly found), partial/corrupt Enhanced file risk on crash (newly found), a silent validation gap when a file disappears mid-check (newly found), and abrupt shutdown cutting off in-flight work (newly found).
+- Automation 1 was not modified in this session and remains frozen/Production Ready.
+- Automation 2 reuses one constant from Automation 1 (`SUPPORTED_IMAGE_EXTENSIONS` from `src/automation1/config.js`) but is otherwise fully independent — its own queue, logger, state-store, and watcher were duplicated rather than imported/refactored, specifically to avoid touching Automation 1's frozen, hardened, tested code.
+- Automation 2 has no code path that publishes or connects to any external service — there are no network calls anywhere in `src/automation2/`.
+- Captions, hashtags, and ALT text are template/filename-derived only — there is no real image or vision analysis in this implementation, by design (the requirements explicitly forbid inferring or inventing anything not actually known about the image).
 
 ## Outstanding Work / Remaining Limitations
 
-- No real AI enhancement provider integrated yet (Pass-through only) — expected, not a defect.
-- The event log (`.automation1/logs/events.ndjson`) has no rotation; fine for a single trip, worth revisiting only if it's run continuously for a long time.
-- Watcher retry uses a fixed delay/retry count (5 retries, 1s apart, no backoff); acceptable for now.
-- Automation 2 has not been ported to the production Media Workspace.
+- No real AI enhancement provider integrated for Automation 1 (expected, unchanged from prior sessions).
+- No real image/vision analysis for Automation 2 — every posting package needs full human review before publishing, by design.
+- Neither automation has log rotation (acceptable for trip-length usage).
+- The older `src/content-factory/` scaffold (scene intelligence, preset recommendation, draft generation) still exists separately and has not been retired or ported to the production workspace.
 
 ## Recommended Next Actions
 
-1. Use Automation 1 for real travel content. Per the user's instruction and the hardening review, Automation 1 should be frozen until real-world usage reveals concrete issues — avoid further speculative hardening.
-2. When ready, integrate a real enhancement provider as a new `BaseEnhancementProvider` subclass via `registerProvider`.
-3. Do not begin Automation 2 until explicitly directed.
+1. Use Automation 1 and Automation 2 for real travel content. Both should be frozen until real-world usage surfaces concrete issues — avoid further speculative work.
+2. When ready, integrate a real AI enhancement provider for Automation 1 (new `BaseEnhancementProvider` subclass + `registerProvider`).
+3. Decide whether to retire/merge the older `content-factory/` scaffold now that both production automations exist independently of it.

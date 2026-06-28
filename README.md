@@ -73,6 +73,19 @@ npm run automation1:watch
 
 See `docs/FEATURES/automation-1.md` for configuration (`.env.example`) and the provider abstraction, and `docs/ARCHITECTURE.md` for the full automation roadmap and authenticity/approval boundaries.
 
+## Automation 2
+
+Automation 2 watches `Instagram Ready/` and generates a draft posting package (caption, hashtags, ALT text, checklist) per image in `Posting Package/`. It never publishes, never connects to Instagram, and never modifies the image.
+
+```bash
+npm run automation2:init
+npm run automation2:run
+npm run automation2:status
+npm run automation2:watch
+```
+
+See `docs/FEATURES/automation-2.md` for the content rules and `docs/OPERATOR_GUIDE.md` for day-to-day usage.
+
 ## Repository Memory
 
 Every development session must begin by reading:

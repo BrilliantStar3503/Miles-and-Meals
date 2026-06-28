@@ -55,3 +55,14 @@
 - Added 5 new tests (14/14 total passing) covering all of the above.
 - Updated `docs/FEATURES/automation-1.md` and `docs/OPERATOR_GUIDE.md`.
 - No workflow, folder structure, or functionality changed. No AI provider integrated. Automation 2 not started.
+
+## 2026-06-28 (continued) - Automation 2 implementation
+
+- Implemented `src/automation2/`: config, file manager, validator, queue, logger, state store, watcher, posting-package generator, and pipeline orchestration for `init`, `run`, `status`, and `watch`. Built hardened from the start (watcher error handling with bounded retry, atomic state writes with corrupted-state recovery, atomic posting-package writes with cleanup on failure, graceful SIGINT/SIGTERM shutdown).
+- Automation 2 watches only `Instagram Ready/` and generates one Markdown posting package per image in a new `Posting Package/` folder: draft caption with a `Location: __________` placeholder, reusable hashtag set, filename-derived ALT text draft, posting checklist, and a processing log entry. Every package states it is a draft and that nothing was published or connected to Instagram.
+- Never overwrites an existing posting package; never modifies the original image; never publishes; never connects to Instagram; preserves the existing folder structure (only adds `Posting Package/` and `.automation2/`).
+- Added CLI commands `automation2:init`, `automation2:run`, `automation2:status`, `automation2:watch` and matching `npm run` scripts; added `.env.example` entries for Automation 2 configuration.
+- Added `test/automation2.test.js` (9 tests, all passing); `npm test` now passes 23/23 total across all three test files.
+- Verified against the real production Media Workspace (`~/Miles and Meals PH`) using synthetic test data only; confirmed no existing folder or file was touched; cleaned up afterward.
+- Added `docs/FEATURES/automation-2.md`; updated `docs/ARCHITECTURE.md`, `README.md`, and `docs/OPERATOR_GUIDE.md` (expanded to cover both automations).
+- Automation 1 was not modified and remains frozen.

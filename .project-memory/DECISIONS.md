@@ -78,6 +78,18 @@ Decision: Before starting Automation 2 or integrating a real AI provider, perfor
 
 Reasoning: Several crash/corruption risks were found beyond the originally known watcher issue (unhandled rejections from triggered runs, non-atomic state and file writes, a silent validation gap, abrupt shutdown). Fixing these now, while the workflow is still simple and well understood, is cheaper than discovering them mid-trip. Automation 1 is now considered Production Ready and is intentionally frozen until real-world usage surfaces further issues.
 
+## 2026-06-28 - Implement Automation 2 as Draft-Only, With No Image Analysis and No Network Access
+
+Decision: Automation 2 watches `Instagram Ready/` and generates a Markdown posting package (caption, hashtags, ALT text, checklist, processing log) per image in a new `Posting Package/` folder. Captions never assume a location (a `Location: __________` placeholder is used instead) and never invent an experience or historical fact. ALT text is explicitly labeled as filename-derived only, since Automation 2 performs no image/vision analysis. There is no code path anywhere in `src/automation2/` that calls Instagram or any external service.
+
+Reasoning: Automation 2's whole purpose is to remove repetitive drafting work without crossing into the creator's responsibilities (storytelling, brand voice, factual claims, publishing approval). Anything resembling a real description of image content or a real location would either be fabricated (since no vision model is integrated) or a creative claim that belongs to the human. Keeping every output an explicit, labeled draft preserves the same authenticity boundary established for Automation 1.
+
+## 2026-06-28 - Build Automation 2 Hardened From the Start, Independent of Automation 1's Frozen Code
+
+Decision: `src/automation2/` duplicates Automation 1's queue, logger, state-store, and watcher patterns (including the watcher error-handling/retry logic and atomic-write hardening) rather than importing or refactoring Automation 1's modules to share them. The one exception is reusing the read-only `SUPPORTED_IMAGE_EXTENSIONS` constant from `src/automation1/config.js`.
+
+Reasoning: Automation 1 was just declared frozen and Production Ready. Refactoring its internals to extract shared utilities would risk regressing tested, hardened code for a modest reduction in duplication. Building Automation 2 to the same reliability standard independently keeps both automations consistent without touching what's already frozen.
+
 ## 2026-06-28 - Separate the Development Repository From the Media Workspace
 
 Decision: This repository (`Miles-and-Meals`) holds code, documentation, automation, and project memory. The production Media Workspace (`Miles and Meals PH`) holds actual photos, videos, Lightroom assets, CapCut projects, and published media, and lives outside this repository.

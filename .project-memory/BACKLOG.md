@@ -32,13 +32,16 @@ Remaining:
 - Add vision-model scene intelligence.
 - Run `automation1:watch` continuously against real production media to validate long-running behavior.
 
-### Automation 2 (Lightroom/Instagram Ready -> Posting Package)
+### Automation 2 (Instagram Ready -> Posting Package)
 
-- Port caption draft, hashtag, ALT text, and posting-package generation to operate against the production Media Workspace (currently only implemented in the `content-factory/` development scaffold).
-- Add file watcher mode for `Instagram Ready/` / `Lightroom Ready/`.
-- Add approval status transitions for manual review.
+Implemented: folder watcher, validation, processing queue, posting-package generator (caption draft, hashtags, ALT text draft, checklist, processing log), file manager, logging, error handling, and configuration, operating against the production Media Workspace. Never publishes, never connects to Instagram, never modifies the image, never overwrites an existing package. See `docs/FEATURES/automation-2.md`.
+
+Remaining:
+
+- Add approval status transitions for manual review (e.g. marking a package as "reviewed" or "posted" in state, still without ever auto-publishing).
 - Add analytics import and history.
 - Add cloud storage sync.
+- If real image/vision analysis is ever introduced (e.g. for ALT text), it must keep the same authenticity rules: never invent a location, experience, or fact, and always require human verification before publishing.
 
 ### Out of Scope for Automation
 

@@ -57,14 +57,14 @@ Lightroom Ready / Instagram Ready
   -> Manual Publish
 ```
 
-Nothing publishes automatically. A human always reviews and publishes.
+Nothing publishes automatically. A human always reviews and publishes. Implemented in `src/automation2/`: it watches `Instagram Ready/` and generates a Markdown posting package per image in `Posting Package/`; it never connects to Instagram and never modifies the image.
 
 ## Storage
 
 - **Development Repository** (`Miles-and-Meals`) - this repository. Contains code, documentation, automation, and project memory.
 - **Media Workspace** (`Miles and Meals PH`) - a separate location containing photos, videos, Lightroom assets, CapCut projects, and published media. Not part of this repository.
 
-Automation 1 reads from and writes to the Media Workspace directly (`~/Miles and Meals PH` by default, overridable via `AUTOMATION1_MEDIA_ROOT` or `--root`). It also stores its own runtime state and logs inside the Media Workspace, under `.automation1/`, rather than inside this repository. No production media, Automation 1 state, or Automation 1 logs are ever committed to this repository.
+Automation 1 reads from and writes to the Media Workspace directly (`~/Miles and Meals PH` by default, overridable via `AUTOMATION1_MEDIA_ROOT` or `--root`). It also stores its own runtime state and logs inside the Media Workspace, under `.automation1/`, rather than inside this repository. Automation 2 follows the same pattern: it reads/writes the Media Workspace directly (overridable via `AUTOMATION2_MEDIA_ROOT` or `--root`) and stores its own state and logs under `.automation2/` inside the Media Workspace. No production media, automation state, or automation logs are ever committed to this repository.
 
 ## Current Technology
 
@@ -76,6 +76,7 @@ Automation 1 reads from and writes to the Media Workspace directly (`~/Miles and
 - Repository memory: `.project-memory/`.
 - Local factory workspace: `content-factory/` (development-time stand-in for the Media Workspace, used by the original content-factory MVP commands).
 - Automation 1 implementation: `src/automation1/` (operates against the production Media Workspace, `~/Miles and Meals PH` by default).
+- Automation 2 implementation: `src/automation2/` (operates against the production Media Workspace; generates draft posting packages, never publishes).
 - Generated deliverables: `outputs/`.
 - Scratch or intermediate work: `work/`.
 
@@ -108,6 +109,31 @@ npm run automation1:watch
 
 All commands accept `--root <path>` to target a different Media Workspace (used by tests to target a temporary directory instead of production media).
 
+## Automation 2 Implementation
+
+Automation 2 is implemented in `src/automation2/`, mirroring Automation 1's module shape and reliability standard:
+
+- `config.js` - resolves the Media Workspace root, queue concurrency, and stability-check timing; reuses `SUPPORTED_IMAGE_EXTENSIONS` from `src/automation1/config.js`.
+- `file-manager.js` - creates Automation 2 folders, lists `Instagram Ready/` files, and locates/checks for an existing posting package.
+- `validator.js` - rejects unsupported extensions, empty files, and files still being written.
+- `queue.js` - a bounded-concurrency processing queue.
+- `posting-package.js` - builds the posting package (caption draft, hashtags, ALT text draft, checklist, processing log) and writes it as Markdown atomically.
+- `logger.js` - structured JSON-line logging to `.automation2/logs/events.ndjson` inside the Media Workspace.
+- `state-store.js` - per-image JSON state persisted to `.automation2/state.json` inside the Media Workspace, with atomic writes and corrupted-state recovery.
+- `watcher.js` - debounced, error-recovering `fs.watch` on `Instagram Ready/` for continuous mode.
+- `pipeline.js` - orchestrates validation, the processing queue, posting-package generation, logging, and state for `init`, one-shot `run`, `status`, and continuous `watch`.
+
+CLI commands:
+
+```bash
+npm run automation2:init
+npm run automation2:run
+npm run automation2:status
+npm run automation2:watch
+```
+
+See `docs/FEATURES/automation-2.md` for the content rules (caption, hashtags, ALT text) and the rules enforced by design (never publish, never connect to Instagram, never modify the image, never overwrite an existing posting package).
+
 ## Project Structure
 
 ```text
@@ -132,10 +158,21 @@ src/
       base-provider.js
       passthrough-provider.js
       index.js
+  automation2/
+    config.js
+    file-manager.js
+    validator.js
+    queue.js
+    posting-package.js
+    logger.js
+    state-store.js
+    watcher.js
+    pipeline.js
 
 test/
   content-factory.test.js
   automation1.test.js
+  automation2.test.js
 
 content-factory/
   RAW/
@@ -180,6 +217,7 @@ work/
 - The enhancement adapter is currently `local-passthrough`, which copies originals without modifying pixels. A future "natural AI enhancement" adapter must preserve the same authenticity boundary: it may correct exposure, color, and composition cues, but it must not invent scenery, fabricate edits, or alter the substance of a photo.
 - Runtime media, generated drafts, and local state are ignored by git by default.
 - `content-factory/` in this repository is a local development workspace, not the production Media Workspace. The production Media Workspace is `Miles and Meals PH`, outside this repository.
+- Automation 2 generates draft posting packages only; it has no code path that publishes or connects to Instagram. Captions never assume a location (a placeholder is used instead) and never invent experiences or facts; ALT text is explicitly labeled as a filename-based draft, not a description of actual image contents, since Automation 2 does not perform image analysis.
 
 ## Coding Conventions
 
