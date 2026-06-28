@@ -11,6 +11,7 @@ Realigned repository documentation and project memory with the current Miles & M
 - Updated `docs/DATABASE.md` to clarify that tracked state describes the local development workspace only, not the production Media Workspace.
 - Updated `docs/FEATURES/ai-content-factory.md` to reframe the existing MVP against the new roadmap and responsibility split.
 - Updated `.project-memory/PROJECT_STATE.md` and this file to reflect the realignment.
+- Committed the realignment as `877474f` and pushed `main` to `origin/main`. Local `main` and `origin/main` are synchronized at `877474f`; working tree is clean.
 
 ## Important Context
 
