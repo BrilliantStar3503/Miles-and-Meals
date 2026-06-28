@@ -79,15 +79,36 @@ No other Automation 1 code changes.
 
 ## The Miles & Meals Natural Travel Enhancement Profile
 
-This is the official Miles & Meals editing standard, defined in `src/automation1/providers/enhancement-profile.js` and applied by `CloudinaryEnhancementProvider`. The goal is not dramatic AI editing — it's to make every photo look like it was professionally edited in Lightroom by an experienced travel photographer, while preserving authenticity.
+This is the official Miles & Meals editing standard (currently v1.1), defined in `src/automation1/providers/enhancement-profile.js` and applied by `CloudinaryEnhancementProvider`. The goal is not dramatic AI editing — it's to make every photo look like it was professionally edited in Lightroom by an experienced travel photographer: vibrant, crisp, and inviting, while remaining completely authentic and visually consistent from one photo to the next.
 
-**Global rules, enforced by construction, not just by prompt instruction:** the profile uses only Cloudinary's deterministic, per-pixel correction effects (automatic exposure/white-balance/dynamic-range correction, bounded contrast/color/vibrance, and mild sharpening). It does **not** use any generative or diffusion-based effect. This means the profile structurally cannot crop, replace the sky, change the weather, add or remove people or buildings, invent scenery, hallucinate details, or change the location — there is no code path that could do any of that, because none of the effects used are capable of adding image content that wasn't already there.
+**The transformation chain, in Lightroom-workflow order:**
 
-**What it improves:** exposure, white balance, dynamic range, highlight/shadow recovery, micro-contrast, clarity, sharpness, mild noise reduction, texture recovery, and natural vibrance/color balance — adaptively per photo (the underlying Viesus correction engine analyzes each image's own lighting condition, whether sunny, indoor, overcast, snow, or night, and corrects accordingly), without needing separate code branches per scene type.
+1. `e_viesus_correct` - AI-driven automatic exposure, white balance, dynamic range, and highlight/shadow recovery, adaptive per photo. This single component is the scene-adaptive engine: it inspects each photo's own lighting (sunny, overcast, indoor, snow, night, etc.) and corrects accordingly. It's also the closest available equivalent to Lightroom's highlight/shadow recovery and dehaze sliders — Cloudinary has no separate parameters for those.
+2. `e_auto_contrast:20` - normalizes contrast toward a consistent target based on each photo's own histogram. Recovers contrast in flat/overcast shots without pushing already-contrasty shots into an HDR look.
+3. `e_auto_color:20` - normalizes color balance toward neutral based on each photo's own color cast (indoor warmth, snow's blue cast, etc.), capped low enough to correct the cast without stripping the natural ambient mood entirely.
+4. `e_vibrance:22` - boosts muted colors (foliage, water, sky) while Cloudinary's vibrance algorithm protects already-saturated tones, most importantly skin tones. This is the single component responsible for "richer blue sky if one exists" and "natural greenery" — it amplifies existing color and cannot invent a color that wasn't there.
+5. `e_unsharp_mask:60` - edge-aware sharpening for crisp detail (architecture, foliage, snow, water texture) without halo artifacts, capped at a moderate value to read as "crisp," not "obviously sharpened."
 
-**What it deliberately avoids:** HDR-style effects, oversaturation, color clipping, halos, and artificial/over sharpening — the contrast, color, vibrance, and sharpening components are all explicitly capped (`e_auto_contrast:25`, `e_auto_color:25`, `e_vibrance:20`, `e_sharpen:40`) to stay within a natural, editorial-but-authentic look rather than a heavy-handed one.
+**Why this produces brand consistency, not just an authentic look:** the "auto" components (`viesus_correct`, `auto_contrast`, `auto_color`) each normalize a photo *toward the same target tonal range*, rather than applying the same fixed offset to every photo. A fixed offset would amplify whatever variance already existed between, say, a flat overcast shot and a contrasty sunny shot — pushing them further apart. Normalizing toward a shared target is what makes a scrolling Instagram feed read as one consistent editing style across sunny beaches, dim restaurants, and snowy peaks. The fixed-amount components (`vibrance`, `unsharp_mask`) are deliberately mild so they read as a light, repeatable finish on top of that normalization, not as the dominant editing decision.
 
-**Scope note:** scene-specific guidance (outdoor sunny, indoor, cloudy, hazy, snow, mixed lighting, night, water, forest, architecture, portraits) describes the *intent* the profile is designed to satisfy adaptively via the AI correction engine, not separate hardcoded branches per scene — Automation 1 has no scene-detection step, and adding one was out of scope for this change (see Known Issues in `.project-memory/PROJECT_STATE.md`).
+**Global rules, enforced by construction, not just by prompt instruction:** every component is a deterministic, per-pixel correction. None is generative or diffusion-based. This means the profile structurally cannot crop, replace the sky, change the weather, add or remove people or buildings, invent scenery, hallucinate details, or change the location — there is no code path that could do any of that, because none of the effects used are capable of adding image content that wasn't already there.
+
+**Scene coverage without scene-detection code:** Automation 1 has no scene-classification step (adding one was out of scope — see Known Issues in `.project-memory/PROJECT_STATE.md`). Coverage of the brief's scene-specific guidance instead comes from the adaptive components above:
+
+| Scene | How it's covered |
+|---|---|
+| Sunny Outdoor | `viesus_correct` (highlight recovery) + `vibrance` (richer sky/greenery only if already present) |
+| Cloudy / Overcast | `auto_contrast` (recovers cloud/local contrast) + `vibrance` (mild lift, can't invent color that isn't there, so the cloudy mood is preserved) |
+| Indoor | `auto_color` (neutralizes cast without stripping warmth) + `viesus_correct` (shadow recovery, noise reduction) + vibrance's built-in skin-tone protection |
+| Snow | `auto_color` (removes blue cast) + `viesus_correct` (prevents highlight clipping) + `unsharp_mask` (snow texture) |
+| Night | `viesus_correct` (noise reduction, realistic lighting) + `unsharp_mask` (careful sharpness); no brightness-boosting component, so night stays night |
+| Water | `vibrance` (natural blues/turquoise only if present) + `viesus_correct` (highlight recovery in reflections) |
+| Architecture | `unsharp_mask` (edge definition, stone/window texture) + `auto_contrast` (local contrast), with `auto_color` capped low to keep building materials realistic |
+| Forest | `vibrance` capped at 22 specifically to avoid a neon-green look, + `unsharp_mask` (leaf detail) |
+
+See the source comments in `src/automation1/providers/enhancement-profile.js` for the full rationale behind every value.
+
+**What it deliberately avoids:** HDR-style stacking, oversaturation, color clipping, halos, and artificial/over sharpening. Every numeric cap above was chosen so no single component dominates — removing any one still leaves a believable, natural photo, which is the signal that the profile reads as polish, not a heavy edit.
 
 ## Cloudinary Setup
 

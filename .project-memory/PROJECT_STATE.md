@@ -2,7 +2,7 @@
 
 ## Status
 
-Automation 1's Pass-through provider has been replaced as the default enhancement provider by a real AI enhancement provider: `CloudinaryEnhancementProvider`, implementing the official **Miles & Meals Natural Travel Enhancement Profile**. `PassthroughEnhancementProvider` remains registered as an offline/no-credentials fallback. The provider abstraction (`BaseEnhancementProvider`, `createProvider`/`registerProvider`) and the rest of the Automation 1 pipeline were not changed. Automation 2 is unaffected and remains as previously implemented (template-based, no image analysis).
+Automation 1's Pass-through provider has been replaced as the default enhancement provider by a real AI enhancement provider: `CloudinaryEnhancementProvider`, implementing the official **Miles & Meals Natural Travel Enhancement Profile** (now refined to v1.1 for visual consistency and a more premium Lightroom-style finish). `PassthroughEnhancementProvider` remains registered as an offline/no-credentials fallback. The provider abstraction (`BaseEnhancementProvider`, `createProvider`/`registerProvider`) and the rest of the Automation 1 pipeline were not changed. Automation 2 is unaffected and remains as previously implemented (template-based, no image analysis).
 
 ## Completed
 
@@ -20,6 +20,19 @@ Automation 1's Pass-through provider has been replaced as the default enhancemen
 - Updated `test/automation1.test.js`: existing tests that depended on the old default now explicitly pass `provider: "passthrough"` (pipeline behavior is identical regardless of provider, demonstrating the abstraction holds); the default-provider assertion was updated to `"cloudinary"`. Added tests mocking `globalThis.fetch` to verify (a) missing-credentials error handling end-to-end through the pipeline (2 files, both fail independently, originals untouched, queue still completes), (b) a full mocked upload → eager-transform → download → atomic-write round trip, including verifying `state.json` records the enhancement profile name, and (c) that a failed cleanup-deletion does not fail the overall enhancement. No real network calls or credentials are required to run the test suite.
 - `npm test`: 27/27 passing (15 in `automation1.test.js` — 11 prior + 4 new Cloudinary-specific — plus 9 in `automation2.test.js` and 3 in `content-factory.test.js`).
 - Manually verified against the real production Media Workspace (`~/Miles and Meals PH`, which now contains real creator photos from genuine prior usage): ran `automation1:run` with no Cloudinary credentials configured — confirmed it correctly skipped the 6 already-enhanced real photos (never re-processed or overwrote them) and only the one synthetic test file failed with a clear "Missing required environment variable" message; confirmed with `--provider passthrough` that the fallback still works; cleaned up the synthetic file and its `state.json`/log entries afterward without touching any real photo or its existing state.
+
+### Enhancement Profile Refinement (this session)
+
+- Refined `src/automation1/providers/enhancement-profile.js` to v1.1, retuning the Cloudinary transformation chain for visual consistency and a more premium, crisp, vibrant look while staying within the authenticity rules:
+  - `e_viesus_correct` (unchanged) - AI-driven scene-adaptive exposure/white-balance/dynamic-range correction; the single component responsible for satisfying the brief's scene-specific guidance (sunny/cloudy/indoor/snow/night/water/architecture/forest) without any scene-classifier code.
+  - `e_auto_contrast:25` -> `e_auto_contrast:20` and `e_auto_color:25` -> `e_auto_color:20` - slightly gentler caps, chosen so contrast/color normalization reads as "corrected" rather than "graded," reducing HDR risk.
+  - `e_vibrance:20` -> `e_vibrance:22` - a touch more vibrancy for a "vibrant, inviting" feel, still using Cloudinary's skin-tone-protecting vibrance algorithm rather than flat saturation.
+  - `e_sharpen:40` -> `e_unsharp_mask:60` - switched to edge-aware unsharp masking for a crisper, more professional detail rendition with lower halo risk than naive sharpening.
+- Documented, in source comments and in `docs/FEATURES/automation-1.md`, why the "auto" components (viesus_correct, auto_contrast, auto_color) are what produce **brand consistency**: they normalize each photo toward the same target tonal range (rather than applying the same fixed offset to every photo, which would amplify pre-existing variance between photos) — this is the mechanism that makes a feed of sunny-beach, dim-restaurant, and snowy-peak photos read as one consistent editing style.
+- Added a scene-coverage table (in both the source comments and `docs/FEATURES/automation-1.md`) explicitly mapping each of the brief's named scene categories (Sunny Outdoor, Cloudy/Overcast, Indoor, Snow, Night, Water, Architecture, Forest) to which transformation component(s) address it and why — including being explicit about Cloudinary's gaps (no literal "dehaze" or "highlight/shadow recovery" sliders; `e_viesus_correct` is the relied-upon proxy for both).
+- No change to the provider abstraction, the pipeline, or which provider is default/registered — only the transformation values and version number inside the existing Cloudinary provider changed.
+- Added a test asserting the transformation chain contains only known non-generative effect prefixes (`e_viesus_correct`, `e_auto_contrast`, `e_auto_color`, `e_vibrance`, `e_unsharp_mask`/`e_sharpen`) and explicitly rejects generative-effect prefixes, so a future edit to the profile that accidentally introduces a generative effect will fail CI.
+- `npm test`: 28/28 passing.
 
 ### Automation 2 (no changes this session)
 

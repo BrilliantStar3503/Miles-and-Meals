@@ -14,6 +14,7 @@ import { readState, writeState } from "../src/automation1/state-store.js";
 import { watchCandidates } from "../src/automation1/watcher.js";
 import { createProvider, registerProvider } from "../src/automation1/providers/index.js";
 import { BaseEnhancementProvider } from "../src/automation1/providers/base-provider.js";
+import { NATURAL_ENHANCEMENT_TRANSFORMATION } from "../src/automation1/providers/enhancement-profile.js";
 
 async function createTempWorkspace() {
   return fs.mkdtemp(path.join(os.tmpdir(), "miles-meals-automation1-"));
@@ -157,6 +158,24 @@ test("watchAutomation1 logs and survives a failing run instead of crashing", asy
 test("createProvider returns the Cloudinary provider as the official Natural Travel Enhancement Profile provider", () => {
   const provider = createProvider("cloudinary");
   assert.equal(provider.name, "cloudinary");
+});
+
+test("the Natural Travel Enhancement Profile uses only non-generative, deterministic Cloudinary effects", () => {
+  const components = NATURAL_ENHANCEMENT_TRANSFORMATION.split("/");
+
+  assert.ok(components.includes("e_viesus_correct"));
+  assert.ok(components.some((component) => component.startsWith("e_auto_contrast:")));
+  assert.ok(components.some((component) => component.startsWith("e_auto_color:")));
+  assert.ok(components.some((component) => component.startsWith("e_vibrance:")));
+  assert.ok(components.some((component) => component.startsWith("e_unsharp_mask:") || component.startsWith("e_sharpen:")));
+
+  const generativeEffectPrefixes = ["e_gen_", "e_background_removal", "e_generative_"];
+  for (const component of components) {
+    assert.ok(
+      !generativeEffectPrefixes.some((prefix) => component.startsWith(prefix)),
+      `Transformation component "${component}" must not be a generative/diffusion effect.`
+    );
+  }
 });
 
 test("the Cloudinary provider fails clearly when credentials are missing, preserves originals, and keeps processing other files", async () => {

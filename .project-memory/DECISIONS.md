@@ -108,6 +108,12 @@ Decision: The Natural Travel Enhancement Profile is a single, uniform transforma
 
 Reasoning: The task instructions required preserving the existing Automation 1 workflow and verifying it "remains unchanged except for replacing the Pass-through provider." Adding scene detection would have expanded the workflow (a new analysis stage before enhancement) beyond a provider swap. The chosen correction engine is itself content-aware/adaptive per image, which satisfies the spirit of the per-scene guidance without adding a new pipeline stage; true per-scene branching is recorded as a possible future enhancement, not done here.
 
+## 2026-06-28 - Refine the Enhancement Profile via Normalization, Not Per-Photo Branching, for Brand Consistency
+
+Decision: Retune the Natural Travel Enhancement Profile (v1.0 -> v1.1) by adjusting the existing Cloudinary effect parameters (`auto_contrast`/`auto_color` capped lower, `vibrance` slightly higher, `sharpen` replaced with `unsharp_mask`), rather than adding scene-detection logic or per-photo conditional parameters to satisfy the brief's "scene-based optimization" and "brand consistency" requirements.
+
+Reasoning: Cloudinary's "auto" effects already normalize each photo toward a shared target tonal range based on that photo's own histogram/color-cast — which is precisely the mechanism needed for consistency across varied raw input (a flat overcast shot and a contrasty sunny shot should converge toward the same finished look, not diverge further). Adding our own scene classifier would duplicate work the chosen engine already does adaptively, and would expand the Automation 1 workflow, which the user had previously asked to keep unchanged when the Cloudinary provider was introduced. The scene-by-scene guidance in the brief is satisfied by documenting which existing component covers which scene, not by writing new branching code.
+
 ## 2026-06-28 - Separate the Development Repository From the Media Workspace
 
 Decision: This repository (`Miles-and-Meals`) holds code, documentation, automation, and project memory. The production Media Workspace (`Miles and Meals PH`) holds actual photos, videos, Lightroom assets, CapCut projects, and published media, and lives outside this repository.

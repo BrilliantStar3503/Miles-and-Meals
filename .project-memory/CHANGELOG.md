@@ -79,3 +79,11 @@
 - Verified against the real production Media Workspace (`~/Miles and Meals PH`, which now holds real creator photos from genuine prior use): confirmed the 6 existing enhanced photos were correctly skipped and untouched, and a synthetic test file failed cleanly with the expected missing-credentials error; cleaned up the synthetic entry surgically afterward.
 - Updated `docs/FEATURES/automation-1.md`, `docs/ARCHITECTURE.md`, `README.md`, and `docs/OPERATOR_GUIDE.md` to document the new provider, the enhancement profile, and Cloudinary setup/cost.
 - Automation 2 was not modified.
+
+## 2026-06-28 (continued) - Refine the Natural Travel Enhancement Profile for consistency and a premium look
+
+- Retuned `src/automation1/providers/enhancement-profile.js` to v1.1: `e_auto_contrast`/`e_auto_color` capped at 20 (was 25), `e_vibrance` raised to 22 (was 20), and `e_sharpen:40` replaced with `e_unsharp_mask:60` for crisper, lower-halo-risk detail.
+- Documented why the "auto" components produce brand consistency (they normalize each photo toward a shared target tonal range rather than applying a fixed offset, which would amplify pre-existing variance between photos) and added an explicit scene-coverage table mapping each of the brief's named scene categories to the transformation component(s) that address it.
+- Added a guardrail test asserting the transformation chain contains only recognized non-generative effect prefixes and fails if a generative-effect prefix is ever introduced.
+- Updated `docs/FEATURES/automation-1.md`'s enhancement-profile section to match.
+- No change to the provider abstraction, the pipeline, or the default/registered providers. `npm test`: 28/28 passing.
